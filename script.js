@@ -34,26 +34,45 @@ function habitIconMarkup(habit) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
-const LEVEL_THRESHOLDS = [0,100,250,500,800,1200,1700,2400,3200,4200];
-const LEVEL_NAMES = ['Novice','Apprentice','Practitioner','Devotee','Disciplined','Focused','Master','Grandmaster','Legend','Transcendent'];
+const ICONS = {"play":"<polygon points=\"7 4 20 12 7 20 7 4\"/>","stop":"<rect x=\"6\" y=\"6\" width=\"12\" height=\"12\" rx=\"2\"/>","flame": "<path d=\"M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z\"/>", "trophy": "<circle cx=\"12\" cy=\"8\" r=\"7\"/><polyline points=\"8.21 13.89 7 23 12 20 17 23 15.79 13.88\"/>", "star": "<polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/>", "alert": "<path d=\"M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z\"/><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"/><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/>", "bell": "<path d=\"M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9\"/><path d=\"M13.73 21a2 2 0 0 1-3.46 0\"/>", "bellOff": "<path d=\"M13.73 21a2 2 0 0 1-3.46 0\"/><path d=\"M18.63 13A17.89 17.89 0 0 1 18 8\"/><path d=\"M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14\"/><path d=\"M18 8a6 6 0 0 0-9.33-5\"/><line x1=\"1\" y1=\"1\" x2=\"23\" y2=\"23\"/>", "moon": "<path d=\"M20 14.5A8.5 8.5 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"5\"/><path d=\"M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42\"/>", "volume": "<polygon points=\"11 5 6 9 2 9 2 15 6 15 11 19 11 5\"/><path d=\"M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07\"/>", "zen": "<circle cx=\"12\" cy=\"6\" r=\"2.5\"/><path d=\"M12 9.5v4\"/><path d=\"M4 19c2.2-.6 4.5-2 8-2s5.8 1.4 8 2\"/><path d=\"M8 13.5c1 .6 2.4 1 4 1s3-.4 4-1\"/>", "edit": "<path d=\"M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z\"/>", "trash": "<polyline points=\"3 6 5 6 21 6\"/><path d=\"M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6\"/><path d=\"M10 11v6M14 11v6\"/><path d=\"M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2\"/>", "user": "<path d=\"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2\"/><circle cx=\"12\" cy=\"7\" r=\"4\"/>"};
+function icon(name) {
+  const p = ICONS[name] || HABIT_ICONS[name];
+  return p ? `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>` : '';
+}
+const fmtNum = n => Number(n).toLocaleString('fr-FR');
 
-const MOOD_LABELS  = ['','Bad','Not Good','Okay','Good','Great'];
+function progressBar(pct, label) {
+  return `<div class="pbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${label}"><div class="pbar-fill" style="width:${pct}%"></div></div>`;
+}
+function habitProgress(h, k) {
+  if (h.type === 'drink') return { v: getDrinkMl(k), goal: DRINK_GOAL, max: DRINK_MAX, step: DRINK_STEP, unit: 'ml' };
+  return { v: getCounterVal(h.id, k), goal: h.goal, max: h.max, step: h.step, unit: h.unit || '' };
+}
+function dayProgress(h, k, d) {
+  if (h.type === 'drink' || h.type === 'counter') { const p = habitProgress(h, k); return Math.min(1, p.v / p.goal); }
+  return getHabitDayValue(h, k, d);
+}
+
+const LEVEL_THRESHOLDS = [0,100,250,500,800,1200,1700,2400,3200,4200];
+const LEVEL_NAMES = ['Novice','Apprenti','Pratiquant','Fervent','Discipliné','Concentré','Maître','Grand maître','Légende','Transcendant'];
+
+const MOOD_LABELS  = ['','Mal','Bof','Neutre','Bien','Super'];
 const MOOD_EMOJIS  = ['','😡','😢','😐','😊','😎'];
 const MOOD_COLORS  = ['','#FF6B6B','#FF8A4C','#FFD23F','#52E0A1','#8EA2FF'];
 
 const FEELINGS_BY_MOOD = {
-  5: ['Happy','Brave','Motivated','Creative','Confident','Calm','Grateful','Peaceful','Excited','Loved','Hopeful','Inspired','Proud','Euphoric','Nostalgic'],
-  4: ['Joyful','Relaxed','Content','Grateful','Optimistic','Energized','Focused','Cheerful','Pleased','Refreshed'],
-  3: ['Okay','Neutral','Calm','Indifferent','Steady','Fine','Normal','Balanced'],
-  2: ['Tired','Anxious','Stressed','Worried','Overwhelmed','Sad','Lonely','Frustrated'],
-  1: ['Angry','Exhausted','Hopeless','Miserable','Depressed','Irritated','Burnt out'],
+  5: ['Joie','Courage','Motivation','Créativité','Confiance','Calme','Gratitude','Sérénité','Enthousiasme','Amour','Espoir','Inspiration','Fierté','Euphorie','Nostalgie'],
+  4: ['Détente','Contentement','Optimisme','Énergie','Concentration','Gaieté','Satisfaction','Légèreté','Gratitude','Fraîcheur'],
+  3: ['Neutre','Calme','Indifférence','Stabilité','Équilibre','Normalité','Routine','Rien de spécial'],
+  2: ['Fatigue','Anxiété','Stress','Inquiétude','Surcharge','Tristesse','Solitude','Frustration'],
+  1: ['Colère','Épuisement','Désespoir','Détresse','Déprime','Irritation','Burn-out'],
 };
 
-const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const MONTH_SHORT  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const MONTH_SHORT  = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
 
-const DAY_FULL    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const DAY_SHORT   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const DAY_FULL    = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const DAY_SHORT   = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const withAlpha = (hex,a) => { const h=hex.replace('#',''); const f=h.length===3?h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; };
@@ -120,7 +139,7 @@ function initTheme() {
   const dark = DB.profile.darkMode===true;
   document.documentElement.setAttribute('data-theme', dark?'dark':'light');
   const btn=document.getElementById('themeToggle');
-  if(btn){ btn.textContent=dark?'ON':'OFF'; btn.className=`pref-toggle ${dark?'on':'off'}`; }
+  if(btn){ btn.textContent=dark?'Activé':'Désactivé'; btn.className=`pref-toggle ${dark?'on':'off'}`; }
 }
 function toggleTheme() {
   DB.profile.darkMode = !DB.profile.darkMode;
@@ -150,10 +169,12 @@ function playSound(type) {
   } catch(e){}
 }
 
-function showToast(msg, dur=3200) {
+function showToast(msg, dur=3200, ic) {
   const toast=document.getElementById('toast');
-  toast.textContent=msg; toast.classList.add('show');
-  setTimeout(()=>toast.classList.remove('show'), dur);
+  toast.innerHTML=ic?icon(ic):'';
+  const s=document.createElement('span'); s.textContent=msg; toast.appendChild(s);
+  toast.classList.add('show');
+  clearTimeout(showToast._t); showToast._t=setTimeout(()=>toast.classList.remove('show'), dur);
 }
 
 function calcLevel(xp) {
@@ -170,7 +191,7 @@ function xpProgress(xp) {
 function giveXP(amount) {
   const prev=calcLevel(DB.xp); DB.xp=(DB.xp||0)+amount;
   const nw=calcLevel(DB.xp); saveData();
-  if(nw>prev){ const name=LEVEL_NAMES[nw-1]||`Level ${nw}`; setTimeout(()=>{ playSound('levelup'); showToast(`🎉 Level Up! You're now ${name} — Lv.${nw}`,4000); },300); }
+  if(nw>prev){ const name=LEVEL_NAMES[nw-1]||`Niveau ${nw}`; setTimeout(()=>{ playSound('levelup'); showToast(`Niveau ${nw} atteint : ${name}`,4000,'star'); },300); }
 }
 function loseXP(amount) { DB.xp=Math.max(0,(DB.xp||0)-amount); saveData(); }
 
@@ -205,23 +226,23 @@ function countDoneToday() {
 function requiredToday() { const todayDate=new Date(); todayDate.setHours(0,0,0,0); return HABITS.filter(h=>!h.optional&&isDayActive(h,todayDate)).length; }
 
 const ACHIEVEMENTS = [
-  { id:'first_habit', emoji:'🌱', name:'First Step',       desc:'Complete your first habit',              check:()=>Object.values(DB.habits).some(h=>Object.keys(h.logs).length>0) },
-  { id:'camel',       emoji:'🐫', name:'Camel',            desc:'7-day water goal streak',                check:()=>{const h=HABITS.find(x=>x.id==='drink');return h&&calcStreak(h).current>=7;} },
-  { id:'perfect_wk',  emoji:'⭐', name:'Perfect Week',     desc:'100% success for a full week',           check:()=>checkPerfectWeek() },
-  { id:'king',        emoji:'👑', name:'King',             desc:'No bad habit triggered for 14 days',     check:()=>{const b=HABITS.filter(h=>h.type==='bad');return b.length>0&&b.every(h=>calcStreak(h).current>=14);} },
-  { id:'centurion',   emoji:'⚔️', name:'Centurion',        desc:'Accumulate 100 XP',                      check:()=>(DB.xp||0)>=100 },
-  { id:'on_fire',     emoji:'🔥', name:'On Fire',          desc:'Reach Level 5',                          check:()=>calcLevel(DB.xp)>=5 },
-  { id:'bookworm',    emoji:'📖', name:'Bookworm',         desc:'14-day reading streak',                  check:()=>{const h=HABITS.find(x=>x.id==='read');return h&&calcStreak(h).current>=14;} },
-  { id:'ironwill',    emoji:'💪', name:'Iron Will',        desc:'20 gym sessions this month',             check:()=>checkGymMonth() },
-  { id:'consistent',  emoji:'🌅', name:'Consistent',       desc:'30+ day streak on any habit',            check:()=>HABITS.some(h=>calcStreak(h).current>=30) },
-  { id:'night_tmd',   emoji:'🌙', name:'Night Owl Tamed',  desc:'14-day sleep streak',                    check:()=>{const h=HABITS.find(x=>x.id==='sleep');return h&&calcStreak(h).current>=14;} },
-  { id:'xp_500',      emoji:'💎', name:'XP Hoarder',       desc:'Accumulate 500 XP',                      check:()=>(DB.xp||0)>=500 },
-  { id:'dedicated',   emoji:'🎯', name:'Dedicated',        desc:'60+ day streak on any habit',            check:()=>HABITS.some(h=>calcStreak(h).current>=60) },
-  { id:'perfectist',  emoji:'💯', name:'Perfectionist',    desc:'5 Perfect Days',                         check:()=>(DB.perfectDaysClaimed||[]).length>=5 },
-  { id:'hydration',   emoji:'🌊', name:'Hydration Master', desc:'30-day water goal streak',               check:()=>{const h=HABITS.find(x=>x.id==='drink');return h&&calcStreak(h).current>=30;} },
-  { id:'transcend',   emoji:'🌌', name:'Transcendent',     desc:'Reach the maximum level',                check:()=>calcLevel(DB.xp)>=LEVEL_THRESHOLDS.length },
-  { id:'walker',      emoji:'👣', name:'Walker',           desc:'10 000 steps streak for 7 days',         check:()=>{const h=HABITS.find(x=>x.id==='setp');return h&&calcStreak(h).current>=7;} },
-  { id:'marathoner',  emoji:'🏅', name:'Marathoner',       desc:'10 000 steps streak for 30 days',        check:()=>{const h=HABITS.find(x=>x.id==='setp');return h&&calcStreak(h).current>=30;} },
+  { id:'first_habit', emoji:'🌱', name:"Premier pas",       desc:"Valide ta première habitude",              check:()=>Object.values(DB.habits).some(h=>Object.keys(h.logs).length>0) },
+  { id:'camel',       emoji:'🐫', name:"Chameau",            desc:"7 jours d'affilée à l'objectif eau",                check:()=>{const h=HABITS.find(x=>x.id==='drink');return h&&calcStreak(h).current>=7;} },
+  { id:'perfect_wk',  emoji:'⭐', name:"Semaine parfaite",     desc:"100 % de réussite sur une semaine complète",           check:()=>checkPerfectWeek() },
+  { id:'king',        emoji:'👑', name:"Maîtrise de soi",             desc:"Aucune mauvaise habitude pendant 14 jours",     check:()=>{const b=HABITS.filter(h=>h.type==='bad');return b.length>0&&b.every(h=>calcStreak(h).current>=14);} },
+  { id:'centurion',   emoji:'⚔️', name:"Centurion",        desc:"Cumule 100 XP",                      check:()=>(DB.xp||0)>=100 },
+  { id:'on_fire',     emoji:'🔥', name:"En feu",          desc:"Atteins le niveau 5",                          check:()=>calcLevel(DB.xp)>=5 },
+  { id:'bookworm',    emoji:'📖', name:"Rat de bibliothèque",         desc:"Série de lecture de 14 jours",                  check:()=>{const h=HABITS.find(x=>x.id==='read');return h&&calcStreak(h).current>=14;} },
+  { id:'ironwill',    emoji:'💪', name:"Volonté de fer",        desc:"20 séances de gym dans le mois",             check:()=>checkGymMonth() },
+  { id:'consistent',  emoji:'🌅', name:"Régularité",       desc:"Série de 30 jours ou plus sur une habitude",            check:()=>HABITS.some(h=>calcStreak(h).current>=30) },
+  { id:'night_tmd',   emoji:'🌙', name:"Hibou apprivoisé",  desc:"Série de sommeil de 14 jours",                    check:()=>{const h=HABITS.find(x=>x.id==='sleep');return h&&calcStreak(h).current>=14;} },
+  { id:'xp_500',      emoji:'💎', name:"Réserve d'XP",       desc:"Cumule 500 XP",                      check:()=>(DB.xp||0)>=500 },
+  { id:'dedicated',   emoji:'🎯', name:"Dévouement",        desc:"Série de 60 jours ou plus sur une habitude",            check:()=>HABITS.some(h=>calcStreak(h).current>=60) },
+  { id:'perfectist',  emoji:'💯', name:"Perfectionniste",    desc:"5 journées parfaites",                         check:()=>(DB.perfectDaysClaimed||[]).length>=5 },
+  { id:'hydration',   emoji:'🌊', name:"Hydratation parfaite", desc:"30 jours d'affilée à l'objectif eau",               check:()=>{const h=HABITS.find(x=>x.id==='drink');return h&&calcStreak(h).current>=30;} },
+  { id:'transcend',   emoji:'🌌', name:"Transcendance",     desc:"Atteins le niveau maximal",                check:()=>calcLevel(DB.xp)>=LEVEL_THRESHOLDS.length },
+  { id:'walker',      emoji:'👣', name:"Sur la route",           desc:"10 000 pas par jour pendant 7 jours",         check:()=>{const h=HABITS.find(x=>x.id==='setp');return h&&calcStreak(h).current>=7;} },
+  { id:'marathoner',  emoji:'🏅', name:"Marathon",       desc:"10 000 pas par jour pendant 30 jours",        check:()=>{const h=HABITS.find(x=>x.id==='setp');return h&&calcStreak(h).current>=30;} },
 ];
 
 function checkPerfectWeek() {
@@ -247,12 +268,12 @@ function checkGymMonth() {
 }
 function checkAchievements() {
   let nu=0;
-  ACHIEVEMENTS.forEach(a=>{ if(!DB.unlockedAchievements.includes(a.id)&&a.check()){ DB.unlockedAchievements.push(a.id); nu++; setTimeout(()=>{showToast(`🏆 Achievement: ${a.name} ${a.emoji}`,3500);playSound('done');},(nu*700)); } });
+  ACHIEVEMENTS.forEach(a=>{ if(!DB.unlockedAchievements.includes(a.id)&&a.check()){ DB.unlockedAchievements.push(a.id); nu++; setTimeout(()=>{showToast(`Succès débloqué : ${a.name}`,3500,'trophy');playSound('done');},(nu*700)); } });
   if(nu>0) saveData();
 }
 function checkPerfectDayBonus() {
   const t=today(); if(DB.perfectDaysClaimed.includes(t)) return;
-  if(countDoneToday()===requiredToday()){ DB.perfectDaysClaimed.push(t); giveXP(50); setTimeout(()=>showToast('🌟 Perfect Day! +50 XP bonus',3500),600); saveData(); }
+  if(countDoneToday()===requiredToday()){ DB.perfectDaysClaimed.push(t); giveXP(50); setTimeout(()=>showToast('Journée parfaite ! +50 XP',3500,'star'),600); saveData(); }
 }
 function checkDailyPenalties() {}
 
@@ -288,7 +309,7 @@ function addDrinkAmount(ml) {
   if(cur>=DRINK_MAX) return;
   const next=Math.min(DRINK_MAX, cur+ml);
   DB.habits['drink'].logs[t]=next;
-  if(next>=DRINK_GOAL&&cur<DRINK_GOAL){playSound('drink');showToast('💧 Hydration goal reached! +10 XP');giveXP(10);}
+  if(next>=DRINK_GOAL&&cur<DRINK_GOAL){playSound('drink');showToast("Objectif d'hydratation atteint ! +10 XP",3200,'drink');giveXP(10);}
   saveData(); checkAchievements(); renderActivePage();
 }
 function removeDrink() {
@@ -303,7 +324,7 @@ function addCounter(id) {
   if(cur>=habit.max) return;
   const next=cur+habit.step;
   DB.habits[id].logs[t]=next;
-  if(next>=habit.goal&&cur<habit.goal){playSound('done');showToast(`${habit.emoji} Goal reached! +10 XP`);giveXP(10);}
+  if(next>=habit.goal&&cur<habit.goal){playSound('done');showToast(`${habit.name} : objectif atteint ! +10 XP`,3200,habit.id);giveXP(10);}
   saveData(); checkAchievements(); renderActivePage();
 }
 function removeCounter(id) {
@@ -379,7 +400,7 @@ function renderHero() {
   const perfect=active.length>0&&done.length===active.length;
   const date=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   const level=calcLevel(DB.xp);
-  const strip=active.map(h=>`<span class="ink-seg${isHabitDoneOn(h,t,todayDate)?' done':''}" style="--ink:${h.color}" title="${h.name}"></span>`).join('');
+  const strip=active.map(h=>{ const f=dayProgress(h,t,todayDate); return `<span class="ink-seg${f>=1?' done':''}" style="--ink:${h.color};--fill:${Math.round(f*100)}%" title="${h.name}"></span>`; }).join('');
   el.innerHTML=`
     <div class="hero-date">${date}</div>
     <div class="hero-score">
@@ -431,36 +452,29 @@ function buildTodaySubLabel(habit,t,todayDate) {
   const streak=calcStreak(habit).current;
   if(habit.type==='bad') {
     const fail=isBadFail(habit.id,t);
-    return `${fail?'⚠ Craqué':'✓ Tenu bon'} · 🔥 ${streak}j`;
+    return `${fail?'Craqué':'Tenu bon'} · ${icon('flame')} ${streak} j`;
   }
-  return streak>0?`🔥 ${streak} jours de suite`:(habit.freq||'Tous les jours');
+  return streak>0?`${icon('flame')} ${streak} jour${streak>1?'s':''} de suite`:(habit.freq||'Tous les jours');
 }
 
 function buildTodayControl(habit,t,todayDate) {
-  if(habit.type==='drink') {
-    const ml=getDrinkMl(t); const pct=Math.min(100,Math.round((ml/DRINK_GOAL)*100));
-    const atMax=ml>=DRINK_MAX;
-    return `<div style="width:100%">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span class="drink-amount">${ml} ml / ${DRINK_GOAL} ml</span>
-        <button class="habit-toggle-btn${ml>=DRINK_GOAL?' done':''}" onclick="removeDrink()">
-          <svg class="check-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor"><polyline points="4 10 8 14 16 6"/></svg>
-        </button>
+  if(habit.type==='drink'||habit.type==='counter') {
+    const isDrink=habit.type==='drink';
+    const p=habitProgress(habit,t);
+    const pct=Math.min(100,Math.round((p.v/p.goal)*100));
+    const atMax=p.v>=p.max;
+    const hint=p.v>=p.goal?'Objectif atteint':`reste ${fmtNum(p.goal-p.v)} ${p.unit}`;
+    const minus=`<button class="step-btn step-btn-minus" aria-label="Retirer ${fmtNum(p.step)} ${p.unit}" onclick="${isDrink?'removeDrink()':`removeCounter('${habit.id}')`}"${p.v<=0?' disabled':''}>−</button>`;
+    const adds=atMax?'':(isDrink
+      ? `<button class="step-btn" onclick="addDrinkAmount(250)">+250 ml</button><button class="step-btn" onclick="addDrinkAmount(500)">+500 ml</button>`
+      : `<button class="step-btn" onclick="addCounter('${habit.id}')">+${fmtNum(p.step)} ${p.unit}</button>`);
+    return `<div class="ctl">
+      <div class="ctl-head">
+        <span class="ctl-value">${fmtNum(p.v)}<small> / ${fmtNum(p.goal)} ${p.unit}</small></span>
+        <span class="ctl-hint">${hint}</span>
       </div>
-      <div class="drink-bar-track"><div class="drink-bar-fill" style="width:${pct}%"></div></div>
-      ${atMax?'':`<div class="drink-btns">
-        <button class="drink-btn" onclick="addDrinkAmount(250)">+250ml</button>
-        <button class="drink-btn" onclick="addDrinkAmount(500)">+500ml</button>
-      </div>`}
-    </div>`;
-  }
-  if(habit.type==='counter') {
-    const v=getCounterVal(habit.id,t); const done=v>=habit.goal; const atMax=v>=habit.max;
-    const u=habit.unit?` ${habit.unit}`:'';
-    return `<div class="counter-row" style="width:100%;justify-content:space-between;margin-top:0">
-      <button class="counter-btn" onclick="removeCounter('${habit.id}')">−</button>
-      <span class="counter-val">${v}${u} / ${habit.goal}${u}</span>
-      ${atMax?'<div style="width:34px"></div>':`<button class="counter-btn${done?' done':''}" onclick="addCounter('${habit.id}')">+</button>`}
+      ${progressBar(pct,habit.name)}
+      <div class="step-btns">${minus}${adds}</div>
     </div>`;
   }
   if(habit.type==='bad') {
@@ -514,7 +528,7 @@ function renderWeeklyTab() {
             <div class="habit-card-freq">${habit.freq||'Tous les jours'}</div>
           </div>
         </div>
-        <div class="streak-pill">🔥 ${calcStreak(habit).current} j</div>
+        <div class="streak-pill">${icon('flame')}${calcStreak(habit).current} j</div>
       </div>
       <div class="week-day-row">${daysHtml}</div>
     `;
@@ -527,6 +541,10 @@ function toggleHabitOnDate(id, dateKey, dotEl) {
   if(habit.type==='bad') {
     if(DB.habits[id].logs[dateKey]==='fail') delete DB.habits[id].logs[dateKey];
     else DB.habits[id].logs[dateKey]='fail';
+  } else if(habit.type==='counter'||habit.type==='drink') {
+    const goal=habit.type==='drink'?DRINK_GOAL:habit.goal;
+    const cur=habit.type==='drink'?getDrinkMl(dateKey):getCounterVal(id,dateKey);
+    if(cur>=goal) delete DB.habits[id].logs[dateKey]; else DB.habits[id].logs[dateKey]=goal;
   } else if(habit.type==='weekly') {
     if(DB.habits[id].logs[dateKey]==='done') delete DB.habits[id].logs[dateKey];
     else DB.habits[id].logs[dateKey]='done';
@@ -576,7 +594,7 @@ function renderOverallTab() {
             <div class="habit-card-freq">${habit.freq||'Tous les jours'}</div>
           </div>
         </div>
-        <div class="streak-pill">🔥 ${calcStreak(habit).current} j</div>
+        <div class="streak-pill">${icon('flame')}${calcStreak(habit).current} j</div>
       </div>
       <div class="overall-dot-grid">${gridHtml}</div>
     `;
@@ -656,7 +674,7 @@ function openMoodModal(dateKey) {
   document.getElementById('moodStep1').classList.remove('hidden');
   document.getElementById('moodStep2').classList.add('hidden');
   document.querySelectorAll('.mood-emoji-card').forEach(b=>b.classList.remove('selected'));
-  const btn=document.getElementById('moodConfirmBtn'); btn.disabled=true; btn.textContent='I Feel…';
+  const btn=document.getElementById('moodConfirmBtn'); btn.disabled=true; btn.textContent='Je me sens…';
   document.getElementById('moodModal').classList.add('open');
 }
 
@@ -666,18 +684,18 @@ function selectMoodCard(value) {
   selectedMoodValue=value;
   document.querySelectorAll('.mood-emoji-card').forEach(b=>b.classList.toggle('selected',parseInt(b.dataset.value)===value));
   const btn=document.getElementById('moodConfirmBtn'); btn.disabled=false;
-  btn.textContent=`I Feel ${MOOD_LABELS[value]}!`;
+  btn.textContent=`Je me sens ${MOOD_LABELS[value].toLowerCase()}`;
 }
 
 function goToMoodStep2() {
   if(!selectedMoodValue) return;
   selectedFeelings=[];
   const title=document.getElementById('moodStep2Title');
-  title.textContent=`${MOOD_LABELS[selectedMoodValue]}! How would you describe your feelings?`;
+  title.textContent=`${MOOD_LABELS[selectedMoodValue]} ! Comment décris-tu ton ressenti ?`;
   const feelings=FEELINGS_BY_MOOD[selectedMoodValue]||[];
   const grid=document.getElementById('feelingsGrid');
   grid.innerHTML=feelings.map(f=>`<button class="feeling-tag" onclick="selectFeeling('${f}',this)">${f}</button>`).join('');
-  document.getElementById('feelingsConfirmBtn').textContent='Confirm my choice';
+  document.getElementById('feelingsConfirmBtn').textContent='Valider';
   document.getElementById('moodStep1').classList.add('hidden');
   document.getElementById('moodStep2').classList.remove('hidden');
 }
@@ -701,7 +719,7 @@ function saveMoodWithFeelings() {
   saveData();
   closeMoodModal();
   if(activePage==='report') renderReport();
-  showToast(`${MOOD_EMOJIS[selectedMoodValue]} Mood logged!`,2000);
+  showToast(`Humeur enregistrée ${MOOD_EMOJIS[selectedMoodValue]}`,2000);
 }
 
 function buildMoodCalHtml() {
@@ -756,26 +774,26 @@ function renderReport() {
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-val">${maxStreak}</div>
-          <div class="stat-label">Current streak</div>
+          <div class="stat-label">Série en cours</div>
         </div>
         <div class="stat-card">
           <div class="stat-val">${completionRate}%</div>
-          <div class="stat-label">Completion rate</div>
+          <div class="stat-label">Taux de réussite</div>
         </div>
         <div class="stat-card">
           <div class="stat-val">${totalCompleted.toLocaleString()}</div>
-          <div class="stat-label">Habits completed</div>
+          <div class="stat-label">Habitudes validées</div>
         </div>
         <div class="stat-card">
           <div class="stat-val">${perfectDays}</div>
-          <div class="stat-label">Total perfect days</div>
+          <div class="stat-label">Journées parfaites</div>
         </div>
       </div>
 
       <div class="report-card">
         <div class="report-card-header">
-          <div class="report-card-title">Habits Completed</div>
-          <div class="report-period-badge">This Week
+          <div class="report-card-title">Habitudes validées</div>
+          <div class="report-period-badge">Cette semaine
             <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2 4 5 7 8 4"/></svg>
           </div>
         </div>
@@ -783,7 +801,7 @@ function renderReport() {
           ${barData.map((b,i)=>`
             <div class="bar-col">
               <div class="bar-fill${b.isToday?' active':''}" style="height:${b.pct}%;background:${b.isToday?'var(--accent)':'var(--accent-bg)'}">
-                ${b.isToday?`<div class="bar-tooltip">${b.count} habits</div>`:''}
+                ${b.isToday?`<div class="bar-tooltip">${b.count} habitudes</div>`:''}
               </div>
               <div class="bar-label">${b.label}</div>
             </div>`).join('')}
@@ -792,8 +810,8 @@ function renderReport() {
 
       <div class="report-card">
         <div class="report-card-header">
-          <div class="report-card-title">Habit Completion Rate</div>
-          <div class="report-period-badge">Last 6 Months
+          <div class="report-card-title">Évolution du taux de réussite</div>
+          <div class="report-period-badge">6 derniers mois
             <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2 4 5 7 8 4"/></svg>
           </div>
         </div>
@@ -802,8 +820,8 @@ function renderReport() {
 
       <div class="report-card">
         <div class="report-card-header">
-          <div class="report-card-title">Calendar Stats</div>
-          <div class="report-period-badge">This Month
+          <div class="report-card-title">Calendrier du mois</div>
+          <div class="report-period-badge">Ce mois-ci
             <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2 4 5 7 8 4"/></svg>
           </div>
         </div>
@@ -815,16 +833,16 @@ function renderReport() {
 
       <div class="report-card">
         <div class="report-card-header">
-          <div class="report-card-title">Mood Calendar</div>
-          <div class="report-period-badge" style="cursor:pointer" onclick="openMoodManual()">+ Log mood</div>
+          <div class="report-card-title">Calendrier d'humeur</div>
+          <div class="report-period-badge" style="cursor:pointer" onclick="openMoodManual()">+ Saisir l'humeur</div>
         </div>
         ${buildMoodCalHtml()}
       </div>
 
       <div class="report-card">
         <div class="report-card-header">
-          <div class="report-card-title">Mood Chart</div>
-          <div class="report-period-badge">This Week
+          <div class="report-card-title">Courbe d'humeur</div>
+          <div class="report-period-badge">Cette semaine
             <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2 4 5 7 8 4"/></svg>
           </div>
         </div>
@@ -992,14 +1010,18 @@ function renderMyHabits() {
     ${HABITS.map(h=>{
       const streak=calcStreak(h).current;
       const done=isHabitDoneOn(h,t,todayDate);
+      const live=h.type==='drink'||h.type==='counter';
+      let meta=h.freq||'Tous les jours';
+      if(live){ const p=habitProgress(h,t); meta=`${fmtNum(p.v)} / ${fmtNum(p.goal)} ${p.unit}`; }
       return `<div class="my-habit-row" data-habit-id="${h.id}" style="--ink:${h.color}">
         <div class="my-habit-emoji">${habitIconMarkup(h)}</div>
         <div class="my-habit-info">
           <div class="my-habit-name">${h.name}</div>
-          <div class="my-habit-meta">${h.freq||'Tous les jours'}</div>
+          <div class="my-habit-meta">${meta}</div>
+          ${live?progressBar(Math.min(100,Math.round(dayProgress(h,t,todayDate)*100)),h.name).replace('class="pbar"','class="pbar pbar-thin"'):''}
         </div>
-        <div class="my-habit-streak">🔥 ${streak} j</div>
-        <div class="habit-toggle-btn${done?' done':''}" onclick="toggleHabit('${h.id}')">
+        <div class="my-habit-streak">${icon('flame')}${streak} j</div>
+        <div class="habit-toggle-btn${done?' done':''}"${live?' aria-hidden="true"':` onclick="toggleHabit('${h.id}')"`}>
           <svg class="check-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10 8 14 16 6"/></svg>
         </div>
       </div>`;
@@ -1007,7 +1029,7 @@ function renderMyHabits() {
   </div>`;
 }
 
-function openAddHabit() { showToast('💡 Habit management coming soon!',2500); }
+function openAddHabit() { showToast('La gestion des habitudes arrive bientôt.',2500); }
 
 function renderAchievements() {
   const container=document.getElementById('achievementsContent'); if(!container) return;
@@ -1016,9 +1038,9 @@ function renderAchievements() {
   const pct=Math.round((unlocked/total)*100);
 
   const categories=[
-    { label:'Streaks & Consistency', ids:['consistent','dedicated','camel','hydration','bookworm','digital','night_tmd','plant_pwr','phonefree','king','sugarfree','ice_king'] },
-    { label:'Milestones & XP',       ids:['first_habit','centurion','xp_500','on_fire','transcend'] },
-    { label:'Perfect Days',          ids:['perfect_wk','perfectist','ironwill'] },
+    { label:'Séries et régularité', ids:['consistent','dedicated','camel','hydration','bookworm','digital','night_tmd','plant_pwr','phonefree','king','sugarfree','ice_king'] },
+    { label:'Étapes et XP',       ids:['first_habit','centurion','xp_500','on_fire','transcend'] },
+    { label:'Journées parfaites',          ids:['perfect_wk','perfectist','ironwill'] },
   ];
 
   const renderBadge=(a,i)=>{
@@ -1044,12 +1066,12 @@ function renderAchievements() {
 
   const categorised=categories.flatMap(c=>c.ids);
   const otherBadges=ACHIEVEMENTS.filter(a=>!categorised.includes(a.id)).map(renderBadge).join('');
-  const otherSection=otherBadges?`<div class="ach-section"><div class="account-section-title">Other</div><div class="achievements-grid">${otherBadges}</div></div>`:'';
+  const otherSection=otherBadges?`<div class="ach-section"><div class="account-section-title">Autres</div><div class="achievements-grid">${otherBadges}</div></div>`:'';
 
   container.innerHTML=`<div class="account-wrap">
     <div class="xp-card" style="margin-bottom:0">
       <div class="xp-card-row">
-        <span class="xp-label">🏆 Achievements Unlocked</span>
+        <span class="xp-label">${icon('trophy')} Succès débloqués</span>
         <span class="xp-value">${unlocked} / ${total}</span>
       </div>
       <div class="xp-bar-track"><div class="xp-bar-fill" style="width:${pct}%"></div></div>
@@ -1062,7 +1084,7 @@ function renderAchievements() {
 function renderAccount() {
   const container=document.getElementById('accountContent'); if(!container) return;
   const level=calcLevel(DB.xp); const prog=xpProgress(DB.xp);
-  const name=DB.profile.name||'Habit Builder';
+  const name=DB.profile.name||'Mon profil';
   const soundOn=DB.profile.soundEnabled!==false;
   const zenOn=!!DB.profile.zenMode;
   const darkOn=DB.profile.darkMode===true;
@@ -1073,49 +1095,49 @@ function renderAccount() {
 
   container.innerHTML=`<div class="account-wrap">
     <div class="account-profile-card">
-      <div class="account-avatar">👤</div>
+      <div class="account-avatar">${icon('user')}</div>
       <div class="account-name">${name}</div>
-      <div class="account-level-badge">Lv.${level} — ${LEVEL_NAMES[level-1]||'Novice'}</div>
+      <div class="account-level-badge">Niv. ${level} — ${LEVEL_NAMES[level-1]||'Novice'}</div>
     </div>
 
     <div class="xp-card">
       <div class="xp-card-row">
-        <span class="xp-label">Experience Points</span>
-        <span class="xp-value">${DB.xp} XP · ${prog.needed} to next level</span>
+        <span class="xp-label">Expérience</span>
+        <span class="xp-value">${DB.xp} XP · ${prog.needed>0?`encore ${prog.needed}`:'niveau max'}</span>
       </div>
       <div class="xp-bar-track"><div class="xp-bar-fill" style="width:${prog.pct}%"></div></div>
     </div>
 
     <div>
-      <div class="account-section-title">Preferences</div>
+      <div class="account-section-title">Préférences</div>
       <div class="pref-card">
         <div class="pref-row">
-          <div class="pref-info"><span class="pref-icon">✏️</span><div><div class="pref-label-text">Display name</div><div class="pref-hint">${name}</div></div></div>
+          <div class="pref-info"><span class="pref-icon">${icon('edit')}</span><div><div class="pref-label-text">Nom d'affichage</div><div class="pref-hint">${name}</div></div></div>
           <button class="pref-edit" onclick="openProfile()">Modifier</button>
         </div>
         <div class="pref-row">
-          <div class="pref-info"><span class="pref-icon">🌙</span><div><div class="pref-label-text">Dark mode</div><div class="pref-hint">Switch theme</div></div></div>
-          <button class="pref-toggle ${darkOn?'on':'off'}" id="themeToggleAcc" onclick="toggleTheme()">${darkOn?'ON':'OFF'}</button>
+          <div class="pref-info"><span class="pref-icon">${icon('moon')}</span><div><div class="pref-label-text">Mode sombre</div><div class="pref-hint">Changer de thème</div></div></div>
+          <button class="pref-toggle ${darkOn?'on':'off'}" id="themeToggleAcc" onclick="toggleTheme()">${darkOn?'Activé':'Désactivé'}</button>
         </div>
         <div class="pref-row">
-          <div class="pref-info"><span class="pref-icon">🔊</span><div><div class="pref-label-text">Sound effects</div><div class="pref-hint">Auditory feedback</div></div></div>
-          <button class="pref-toggle ${soundOn?'on':'off'}" onclick="togglePref('sound')">${soundOn?'ON':'OFF'}</button>
+          <div class="pref-info"><span class="pref-icon">${icon('volume')}</span><div><div class="pref-label-text">Effets sonores</div><div class="pref-hint">Retour sonore à chaque action</div></div></div>
+          <button class="pref-toggle ${soundOn?'on':'off'}" onclick="togglePref('sound')">${soundOn?'Activé':'Désactivé'}</button>
         </div>
         <div class="pref-row">
-          <div class="pref-info"><span class="pref-icon">🧘</span><div><div class="pref-label-text">Zen mode</div><div class="pref-hint">Completed habits collapse</div></div></div>
-          <button class="pref-toggle ${zenOn?'on':'off'}" onclick="togglePref('zen')">${zenOn?'ON':'OFF'}</button>
+          <div class="pref-info"><span class="pref-icon">${icon('zen')}</span><div><div class="pref-label-text">Mode zen</div><div class="pref-hint">Les habitudes terminées se replient</div></div></div>
+          <button class="pref-toggle ${zenOn?'on':'off'}" onclick="togglePref('zen')">${zenOn?'Activé':'Désactivé'}</button>
         </div>
         <div class="pref-row">
-          <div class="pref-info"><span class="pref-icon">🔔</span><div><div class="pref-label-text">Notifications</div><div class="pref-hint">Daily reminders</div></div></div>
-          <button class="pref-toggle ${notifsOn?'on':'off'}" onclick="toggleNotifications()">${notifsOn?'ON':'OFF'}</button>
+          <div class="pref-info"><span class="pref-icon">${icon('bell')}</span><div><div class="pref-label-text">Notifications</div><div class="pref-hint">Rappels quotidiens</div></div></div>
+          <button class="pref-toggle ${notifsOn?'on':'off'}" onclick="toggleNotifications()">${notifsOn?'Activé':'Désactivé'}</button>
         </div>
       </div>
     </div>
 
     <div class="danger-zone-card">
-      <div class="account-section-title" style="color:var(--danger);margin-bottom:8px">⚠ Danger Zone</div>
-      <div class="pref-hint" style="margin-bottom:12px">Permanently erases all data. Cannot be undone.</div>
-      <button class="modal-reset-btn" onclick="confirmReset()">🗑 Reset all data</button>
+      <div class="account-section-title" style="color:var(--danger);margin-bottom:8px">${icon('alert')} Zone de danger</div>
+      <div class="pref-hint" style="margin-bottom:12px">Efface définitivement toutes les données. Action irréversible.</div>
+      <button class="modal-reset-btn" onclick="confirmReset()">${icon('trash')} Réinitialiser toutes les données</button>
     </div>
   </div>`;
 }
@@ -1136,7 +1158,7 @@ function openProfile() {
 function closeProfile() { document.getElementById('profileModal').classList.remove('open'); }
 function updateToggleBtn(id,on) {
   const btn=document.getElementById(id); if(!btn) return;
-  btn.textContent=on?'ON':'OFF'; btn.className=`pref-toggle ${on?'on':'off'}`;
+  btn.textContent=on?'Activé':'Désactivé'; btn.className=`pref-toggle ${on?'on':'off'}`;
 }
 function saveProfileName() {
   DB.profile.name=document.getElementById('pseudoInput').value.trim();
@@ -1153,32 +1175,32 @@ function togglePref(pref) {
 }
 
 const NOTIF_SCHEDULE = [
-  {id:'work',   title:'💼 Work mode — 08:30',body:"Deep Focus activé.",hour:8,minute:30,days:[1,2,3,4,5]},
-  {id:'running',title:'🏃 Running time — 17:30',body:"Enfile tes baskets!",hour:17,minute:30,days:[1,2,3,4,5]},
-  {id:'sleep',  title:'💤 Lights out — 21:00',body:"Ton lit te réclame.",hour:21,minute:0,days:[1,2,3,4,5]},
-  {id:'phone',  title:'📵 Phone down — 21:00',body:"Branche ton téléphone loin.",hour:21,minute:0,days:[0,1,2,3,4,5,6]},
+  {id:'work',   title:'💼 Mode travail — 08:30',body:"Mode concentration activé.",hour:8,minute:30,days:[1,2,3,4,5]},
+  {id:'running',title:'🏃 Heure de courir — 17:30',body:"Enfile tes baskets!",hour:17,minute:30,days:[1,2,3,4,5]},
+  {id:'sleep',  title:'💤 Extinction des feux — 21:00',body:"Ton lit te réclame.",hour:21,minute:0,days:[1,2,3,4,5]},
+  {id:'phone',  title:'📵 Téléphone posé — 21:00',body:"Branche ton téléphone loin.",hour:21,minute:0,days:[0,1,2,3,4,5,6]},
 ];
 let _notifTimers=[];
 
 function initNotifications() {
   const on=!!DB.profile.notifsEnabled;
-  ['notifsToggle'].forEach(id=>{ const btn=document.getElementById(id); if(btn){btn.textContent=on?'ON':'OFF';btn.className=`pref-toggle ${on?'on':'off'}`;} });
+  ['notifsToggle'].forEach(id=>{ const btn=document.getElementById(id); if(btn){btn.textContent=on?'Activé':'Désactivé';btn.className=`pref-toggle ${on?'on':'off'}`;} });
   if(on&&'Notification' in window&&Notification.permission==='granted') scheduleLocalNotifications();
 }
 
 async function toggleNotifications() {
-  if(!('Notification' in window)){ alert('Notifications not supported.'); return; }
+  if(!('Notification' in window)){ alert('Les notifications ne sont pas prises en charge sur cet appareil.'); return; }
   if(DB.profile.notifsEnabled){
     DB.profile.notifsEnabled=false; _notifTimers.forEach(id=>clearTimeout(id)); _notifTimers=[]; saveData();
-    showToast('🔕 Notifications disabled',2500);
+    showToast('Notifications désactivées',2500,'bellOff');
     if(activePage==='account') renderAccount(); return;
   }
   let perm=Notification.permission;
   if(perm==='default') perm=await Notification.requestPermission();
   if(perm==='granted'){
     DB.profile.notifsEnabled=true; saveData(); scheduleLocalNotifications();
-    showToast(`✅ ${NOTIF_SCHEDULE.length} reminders scheduled`,3000);
-  } else { showToast('❌ Notifications blocked — check browser settings',3500); }
+    showToast(`${NOTIF_SCHEDULE.length} rappels programmés`,3000,'bell');
+  } else { showToast('Notifications bloquées : vérifie les réglages du navigateur',3500,'alert'); }
   if(activePage==='account') renderAccount();
 }
 
@@ -1194,15 +1216,15 @@ function scheduleLocalNotifications() {
 }
 
 function confirmReset() {
-  if(confirm('⚠️ This will permanently delete ALL data. Cannot be undone.\n\nAre you sure?')){
+  if(confirm('Cette action supprime définitivement TOUTES tes données et ne peut pas être annulée.\n\nVeux-tu vraiment tout effacer ?')){
     localStorage.removeItem('ht-v2.6'); location.reload();
   }
 }
 
 const BREATHING_PATTERNS = {
-  box:  { name:'Box Breathing', phases:['Inhale','Hold','Exhale','Hold'], durations:[4,4,4,4], desc:'Inhale 4s · Hold 4s · Exhale 4s · Hold 4s' },
-  '478':{ name:'4-7-8',         phases:['Inhale','Hold','Exhale'],        durations:[4,7,8],   desc:'Inhale 4s · Hold 7s · Exhale 8s' },
-  calm: { name:'Calm',          phases:['Inhale','Hold','Exhale'],        durations:[5,2,5],   desc:'Inhale 5s · Hold 2s · Exhale 5s' },
+  box:  { name:'Respiration carrée', phases:['Inhale','Hold','Exhale','Hold out'], durations:[4,4,4,4], desc:"Quatre temps égaux pour apaiser le stress et retrouver de la concentration." },
+  '478':{ name:'4-7-8',              phases:['Inhale','Hold','Exhale'],            durations:[4,7,8],   desc:"Une longue expiration pour ralentir le rythme et favoriser l'endormissement." },
+  calm: { name:'Calme',              phases:['Inhale','Hold','Exhale'],            durations:[5,2,5],   desc:"Un rythme lent et régulier pour se détendre à tout moment." },
 };
 
 let breath = {
@@ -1214,6 +1236,10 @@ let breath = {
   timer: null,
 };
 
+const BREATH_SHORT = { 'Inhale':'Inspire', 'Hold':'Retiens', 'Hold out':'Retiens', 'Exhale':'Expire' };
+const BREATH_LABEL = { 'Inhale':'Inspirez', 'Hold':'Retenez', 'Hold out':'Retenez', 'Exhale':'Expirez' };
+let breathTick = 0;
+
 function openBreathing() {
   document.getElementById('breathingOverlay').classList.add('open');
   resetBreathDisplay();
@@ -1223,29 +1249,56 @@ function closeBreathing() {
   document.getElementById('breathingOverlay').classList.remove('open');
 }
 
+function renderBreathSteps() {
+  const pat = BREATHING_PATTERNS[breath.pattern];
+  document.getElementById('breathSteps').innerHTML = pat.phases.map((ph, i) =>
+    `<div class="breath-step" data-i="${i}"><span class="bs-name">${BREATH_SHORT[ph]}</span><span class="bs-sec">${pat.durations[i]} s</span></div>`
+  ).join('');
+}
+function markBreathStep(i) {
+  document.querySelectorAll('.breath-step').forEach(el => el.classList.toggle('active', Number(el.dataset.i) === i));
+}
+function updateBreathRounds() {
+  document.getElementById('breathRoundsCount').textContent = breath.rounds;
+  document.getElementById('breathRoundsLabel').textContent = breath.rounds > 1 ? ' cycles terminés' : ' cycle terminé';
+}
+function setBreathStage(cls, dur) {
+  const st = document.getElementById('breathStage');
+  st.className = 'breath-stage' + (cls ? ' ' + cls : '');
+  st.dataset.tick = String(breathTick % 2);
+  if (dur) st.style.setProperty('--dur', dur + 's');
+}
+function setStartBtn(running) {
+  const btn = document.getElementById('breathStartBtn');
+  btn.innerHTML = running ? `${icon('stop')} Arrêter` : `${icon('play')} Commencer`;
+  btn.classList.toggle('active', running);
+}
+
 function selectBreathPattern(p) {
   breath.pattern = p;
-  document.querySelectorAll('.breath-pattern-btn').forEach(b => b.classList.toggle('active', b.dataset.pattern===p));
-  document.getElementById('breathPatternDesc').textContent = BREATHING_PATTERNS[p].desc;
-  if(breath.active) stopBreathing();
+  document.querySelectorAll('.breath-pattern-btn').forEach(b => {
+    const on = b.dataset.pattern === p;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on);
+  });
+  if (breath.active) stopBreathing();
   resetBreathDisplay();
 }
 
 function resetBreathDisplay() {
-  breath.rounds = 0;
-  document.getElementById('breathRoundsCount').textContent = '0';
+  const pat = BREATHING_PATTERNS[breath.pattern];
+  breath.rounds = 0; breath.phaseIdx = 0;
+  updateBreathRounds();
   document.getElementById('breathPhaseLabel').textContent = 'Prêt';
-  document.getElementById('breathCountdown').textContent = BREATHING_PATTERNS[breath.pattern].durations[0];
-  document.getElementById('breathPatternDesc').textContent = BREATHING_PATTERNS[breath.pattern].desc;
-  const circle = document.getElementById('breathCircle');
-  circle.className = 'breath-circle-inner';
-  circle.style.animationDuration = '';
-  document.getElementById('breathStartBtn').textContent = '▶ Start';
-  document.getElementById('breathStartBtn').classList.remove('active');
+  document.getElementById('breathCountdown').textContent = pat.durations[0];
+  document.getElementById('breathPatternDesc').textContent = pat.desc;
+  renderBreathSteps();
+  setBreathStage('');
+  setStartBtn(false);
 }
 
 function toggleBreathing() {
-  if(breath.active) stopBreathing();
+  if (breath.active) stopBreathing();
   else startBreathing();
 }
 
@@ -1253,52 +1306,46 @@ function startBreathing() {
   breath.active = true;
   breath.phaseIdx = 0;
   breath.rounds = 0;
-  document.getElementById('breathStartBtn').textContent = '■ Stop';
-  document.getElementById('breathStartBtn').classList.add('active');
+  updateBreathRounds();
+  setStartBtn(true);
   runBreathPhase();
 }
 
 function stopBreathing() {
   breath.active = false;
   clearTimeout(breath.timer);
-  document.getElementById('breathStartBtn').textContent = '▶ Start';
-  document.getElementById('breathStartBtn').classList.remove('active');
+  setStartBtn(false);
   document.getElementById('breathPhaseLabel').textContent = 'Terminé';
-  const circle = document.getElementById('breathCircle');
-  circle.className = 'breath-circle-inner';
-  circle.style.animationDuration = '';
+  markBreathStep(-1);
+  setBreathStage('');
 }
 
 function runBreathPhase() {
-  if(!breath.active) return;
+  if (!breath.active) return;
   const pat = BREATHING_PATTERNS[breath.pattern];
   const phase = pat.phases[breath.phaseIdx];
   const dur = pat.durations[breath.phaseIdx];
   breath.secondsLeft = dur;
+  breathTick++;
 
-  const labels = { 'Inhale':'Inspirez', 'Hold':'Retenez', 'Exhale':'Expirez', 'Hold out':'Retenez' };
-  document.getElementById('breathPhaseLabel').textContent = labels[phase] || phase;
+  document.getElementById('breathPhaseLabel').textContent = BREATH_LABEL[phase] || phase;
+  const cssPhase = phase==='Inhale' ? 'phase-inhale' : phase==='Exhale' ? 'phase-exhale' : phase==='Hold' ? 'phase-hold' : 'phase-hold-out';
+  setBreathStage('running ' + cssPhase, dur);
+  markBreathStep(breath.phaseIdx);
 
-  const circle = document.getElementById('breathCircle');
-  const cssPhase = phase==='Inhale'?'phase-inhale': phase==='Exhale'?'phase-exhale': phase==='Hold'?'phase-hold':'phase-hold-out';
-  circle.className = 'breath-circle-inner ' + cssPhase;
-  circle.style.animationDuration = dur + 's';
-
-  document.getElementById('breathCountdown').textContent = dur;
+  const cd = document.getElementById('breathCountdown');
+  cd.textContent = dur;
   let elapsed = 0;
   const tick = () => {
-    if(!breath.active) return;
+    if (!breath.active) return;
     elapsed++;
     const remaining = dur - elapsed;
-    document.getElementById('breathCountdown').textContent = remaining > 0 ? remaining : 0;
-    if(elapsed < dur) {
+    cd.textContent = remaining > 0 ? remaining : 0;
+    if (elapsed < dur) {
       breath.timer = setTimeout(tick, 1000);
     } else {
       breath.phaseIdx = (breath.phaseIdx + 1) % pat.phases.length;
-      if(breath.phaseIdx === 0) {
-        breath.rounds++;
-        document.getElementById('breathRoundsCount').textContent = breath.rounds;
-      }
+      if (breath.phaseIdx === 0) { breath.rounds++; updateBreathRounds(); }
       breath.timer = setTimeout(runBreathPhase, 100);
     }
   };
@@ -1338,7 +1385,7 @@ function saveSleepEntry() {
   const date = document.getElementById('sleepDate').value || today();
 
   if(isNaN(hours) || hours < 0 || hours > 23) {
-    showToast('⚠️ Please enter valid hours (0–23)');
+    showToast('Saisis un nombre d\'heures valide (0 à 23)',3200,'alert');
     return;
   }
 
@@ -1349,7 +1396,7 @@ function saveSleepEntry() {
 
   saveData();
   closeSleepEntry();
-  showToast(`💤 Sleep logged: ${hours}h ${minutes}min`);
+  showToast(`Sommeil enregistré : ${hours} h ${minutes} min`,3200,'moon');
   renderSleepSummary();
   if(activePage === 'home') renderActivePage();
 }
