@@ -1262,3 +1262,59 @@ canvas { display: block; width: 100% !important; }
 .ink-seg.done { background: var(--ink, var(--text)); }
 
 .toast { width: max-content; }
+
+/* ── Formulaires : habitudes personnalisées & rappels ── */
+.hf-input { width: 100%; flex: none; }
+select.hf-input { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--text-2) 50%), linear-gradient(135deg, var(--text-2) 50%, transparent 50%); background-position: calc(100% - 20px) 21px, calc(100% - 14px) 21px; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 36px; }
+.hf-opt { font-weight: 500; color: var(--text-3); }
+.hf-hint { font-size: 0.8rem; color: var(--text-2); margin-top: 8px; }
+.hf-fixed { font-family: var(--f-display); font-stretch: 85%; font-weight: 700; font-size: 1.15rem; color: var(--text); }
+
+.hf-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hf-chip { min-height: 44px; border-radius: 14px; border: 2px solid var(--border-strong); color: var(--text); text-align: left; padding: 10px 14px; transition: background-color 0.15s, color 0.15s; }
+.hf-kind { display: flex; flex-direction: column; gap: 2px; }
+.hf-kind b { font-family: var(--f-display); font-stretch: 85%; font-weight: 700; font-size: 1rem; }
+.hf-kind span { font-size: 0.75rem; font-weight: 500; color: var(--text-2); }
+.hf-chip.selected { background: var(--text); border-color: var(--text); color: var(--bg); }
+.hf-chip.selected span { color: inherit; opacity: 0.75; }
+
+.hf-emoji-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.hf-emoji-input { flex: none; width: 64px; padding: 0; text-align: center; font-size: 1.5rem; }
+.hf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+.hf-emoji-btn { height: 44px; border-radius: 12px; border: 2px solid transparent; background: var(--surface-2); font-size: 1.25rem; }
+.hf-emoji-btn.selected { border-color: var(--text); }
+
+.hf-swatches { display: flex; flex-wrap: wrap; gap: 12px; }
+.hf-swatch { width: 40px; height: 40px; border-radius: 50%; background: var(--c); border: 2px solid var(--border); }
+.hf-swatch.selected { outline: 3px solid var(--text); outline-offset: 2px; border-color: var(--bg); }
+
+.hf-days { display: flex; gap: 6px; }
+.hf-day { flex: 1; min-width: 0; height: 46px; border-radius: 12px; border: 2px solid var(--border-strong); font-family: var(--f-display); font-stretch: 85%; font-weight: 700; font-size: 1rem; color: var(--text); transition: background-color 0.15s, color 0.15s; }
+.hf-day.selected { background: var(--text); border-color: var(--text); color: var(--bg); }
+.hf-presets { display: flex; gap: 16px; margin-top: 6px; }
+.hf-link { min-height: 36px; font-size: 0.82rem; font-weight: 700; color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
+
+.hf-num-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.hf-num-field label { display: block; margin-bottom: 6px; font-size: 0.8rem; font-weight: 600; color: var(--text-2); }
+.hf-num-field .pseudo-input[readonly] { opacity: 0.6; }
+
+.hf-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 20px 20px; }
+.hf-actions { display: flex; flex-direction: column; gap: 10px; padding: 0 20px 4px; }
+.hf-actions .modal-save-btn { width: 100%; height: 50px; border-radius: 14px; font-size: 0.95rem; }
+
+/* Page Habitudes : bouton de modification */
+.my-habit-edit { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; border: 1.5px solid var(--border-strong); color: var(--text); display: flex; align-items: center; justify-content: center; transition: background-color 0.15s, color 0.15s; }
+.my-habit-edit:hover { background: var(--text); color: var(--bg); }
+.my-habit-edit .ic { width: 16px; height: 16px; }
+.my-habit-meta { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; }
+.empty-note { padding: 28px 20px; text-align: center; font-size: 0.92rem; color: var(--text-2); }
+
+/* Page Compte : rappels */
+.reminder-row { cursor: pointer; }
+.reminder-row:hover { background: var(--surface-2); }
+.reminder-time { flex-shrink: 0; min-width: 62px; font-family: var(--f-display); font-stretch: 85%; font-weight: 700; font-size: 1.5rem; letter-spacing: -0.01em; color: var(--text); }
+.reminder-info { flex: 1; }
+.reminder-row.off .reminder-time, .reminder-row.off .reminder-info { opacity: 0.45; }
+.reminder-add { width: 100%; min-height: 44px; font-weight: 700; font-size: 0.95rem; color: var(--text); }
+.reminders-note { margin: 10px 4px 0; }
+.reminder-test { margin-top: 12px; }

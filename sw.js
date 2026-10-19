@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ht-v3.0.1';
+const CACHE_VERSION = 'ht-v3.1.0';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

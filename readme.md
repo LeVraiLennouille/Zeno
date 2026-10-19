@@ -6,7 +6,7 @@
 
 ## 📋 Habitudes suivies
 
-Neuf habitudes sont définies par défaut. Chacune a sa couleur (« encre ») et son icône.
+Neuf habitudes sont proposées par défaut. Chacune a sa couleur (« encre ») et son icône. Elles sont toutes modifiables et supprimables, et tu peux en créer autant que tu veux (voir [Habitudes personnalisées](#11--habitudes-personnalisées)).
 
 | Icône | Habitude | Type | Jours actifs | Objectif | Compte dans la journée parfaite |
 |---|---|---|---|---|---|
@@ -118,9 +118,28 @@ Fenêtre de saisie avec **durée** (heures/minutes), **heure de coucher** et **h
 
 Les graphiques sont dessinés en Canvas, sans bibliothèque.
 
-### 11. 🗂️ Page Habitudes
+### 11. 🗂️ Habitudes personnalisées
 
-Liste de toutes les habitudes avec progression du jour, série en cours et validation rapide. Le bouton « + » (ajout d'habitude personnalisée) est présent mais renvoie pour l'instant un message « bientôt disponible ».
+La page **Habitudes** liste toutes les habitudes (progression du jour, série, validation rapide). Le bouton **+** (page Habitudes ou bouton flottant de l'accueil) ouvre le formulaire de création ; le bouton ✏️ de chaque ligne ouvre l'édition.
+
+| Champ | Détail |
+|---|---|
+| **Nom** | 30 caractères max, unique (insensible à la casse) |
+| **Type** | *Case à cocher* · *Compteur* · *Eau* (compteur en ml, préréglé à 2 000 / +250 / 5 000) · *Hebdomadaire* |
+| **Icône** | Un emoji, saisi librement ou choisi dans une grille |
+| **Couleur** | 12 encres claires (le texte reste lisible sur la carte validée) |
+| **Jours actifs** | Sélecteur L M M J V S D avec raccourcis « Tous les jours » et « Lun – Ven » (hors hebdomadaire) |
+| **Objectif** (compteur / eau) | Objectif du jour, ajout par tap, maximum, unité libre (8 caractères) |
+| **Optionnelle** | Ne compte pas dans la journée parfaite |
+
+**Comportement :**
+
+- Une habitude créée n'existe qu'**à partir de sa date de création** : aucun jour passé n'est compté comme manqué et les séries démarrent proprement.
+- Le **type n'est pas modifiable** après création (le format de l'historique en dépend) ; tout le reste l'est. Changer l'objectif d'un compteur s'applique aussi à l'historique.
+- Les habitudes par défaut sont modifiables (nom, couleur, jours, objectif…) et supprimables. L'objectif d'eau par défaut est lui aussi configurable.
+- **Supprimer** une habitude efface son historique (confirmation demandée) et détache les rappels qui y étaient liés.
+- Les habitudes sont stockées dans les données de l'app (`habitDefs`) : elles sont donc sauvegardées et réinitialisées avec le reste.
+- Un compteur qui atteint son objectif peut désormais déclencher la **journée parfaite** (avant, seuls les clics sur les cases à cocher le faisaient).
 
 ### 12. 👤 Compte & préférences
 
@@ -137,18 +156,35 @@ Accessibles depuis la page **Compte** et la fenêtre de profil (⋮).
 
 La page Compte affiche aussi le niveau, le titre et la barre d'XP jusqu'au niveau suivant.
 
-### 13. 🔔 Rappels
+### 13. 🔔 Rappels configurables
 
-Quatre rappels locaux, programmés à l'heure de l'appareil lorsque l'autorisation de notification est accordée :
+Depuis la page **Compte → Rappels**, chaque rappel se règle individuellement. Quatre rappels sont proposés par défaut ; tu peux les modifier, les désactiver, les supprimer ou en créer d'autres.
 
-| Rappel | Heure | Jours |
-|---|---|---|
-| 💼 Mode travail | 08:30 | Lun–Ven |
-| 🏃 Heure de courir | 17:30 | Lun–Ven |
-| 💤 Extinction des feux | 21:00 | Lun–Ven |
-| 📵 Téléphone posé | 21:00 | Tous les jours |
+| Champ | Détail |
+|---|---|
+| **Titre** / **Message** | Texte de la notification (emoji bienvenus) |
+| **Heure** | Sélecteur d'heure natif |
+| **Jours** | Sélecteur L M M J V S D, raccourcis « Tous les jours » et « Lun – Ven » |
+| **Habitude liée** *(facultatif)* | Si l'habitude est déjà faite à l'heure du rappel, la notification est ignorée |
+| **Actif** | Interrupteur pour mettre un rappel en pause sans le supprimer |
 
-> Les rappels sont planifiés par l'application elle-même (minuteurs JavaScript) : ils ne se déclenchent que lorsque l'app est ouverte ou active en arrière-plan. Aucun serveur de push n'est utilisé. Le Service Worker gère le clic sur une notification (focus de l'app ou ouverture).
+Rappels par défaut :
+
+| Rappel | Heure | Jours | Habitude liée |
+|---|---|---|---|
+| 💼 Mode travail | 08:30 | Lun–Ven | Travail |
+| 🏃 Heure de courir | 17:30 | Lun–Ven | Running |
+| 💤 Extinction des feux | 21:00 | Lun–Ven | — |
+| 📵 Téléphone posé | 21:00 | Tous les jours | — |
+
+**Fonctionnement :**
+
+- L'interrupteur **Notifications** des préférences accorde l'autorisation et active ou coupe l'ensemble des rappels ; un bouton **Envoyer une notification test** permet de vérifier que tout fonctionne.
+- Chaque rappel est planifié à sa **prochaine occurrence en respectant ses jours**, puis replanifié après chaque déclenchement et au retour de l'app au premier plan.
+- Un rappel qui arrive avec plus de 10 minutes de retard (appareil en veille) est ignoré plutôt qu'affiché hors de propos.
+- Les notifications passent par le Service Worker quand il est disponible (requis sur Android), avec repli sur l'API Notification.
+
+> **Limite connue :** l'app n'a pas de serveur, les rappels sont donc planifiés par l'application elle-même. Ils sonnent tant que l'app est ouverte ou active en arrière-plan, mais **pas si elle est complètement fermée**. Y parvenir nécessiterait des notifications Web Push, donc un petit serveur d'envoi.
 
 ### 14. 🔊 Sons procéduraux
 
@@ -167,7 +203,7 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 
 - Installable sur iOS (Safari → « Sur l'écran d'accueil ») et Android/desktop (Chrome).
 - Mode `standalone`, orientation portrait, langue `fr`, prise en charge des zones sécurisées (encoche, barre d'accueil).
-- **Hors-ligne** via le Service Worker (`ht-v3.0.1`) :
+- **Hors-ligne** via le Service Worker (`ht-v3.1.0`) :
   - HTML : réseau d'abord, repli sur le cache ;
   - fichiers locaux (CSS, JS, icônes, manifeste) : cache d'abord, précachés à l'installation ;
   - Google Fonts : *stale-while-revalidate*.
@@ -176,7 +212,7 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 
 ### 16. 💾 Stockage & confidentialité
 
-Toutes les données (historique, profil, XP, humeurs, ressentis, journal de sommeil, succès) sont stockées dans le `localStorage` sous la clé **`ht-v2.6`**. Aucune donnée ne quitte votre appareil, aucun compte n'est requis. Les données existantes sont migrées automatiquement avec des valeurs par défaut quand de nouveaux champs apparaissent.
+Toutes les données (historique, définitions des habitudes, rappels, profil, XP, humeurs, ressentis, journal de sommeil, succès) sont stockées dans le `localStorage` sous la clé **`ht-v2.6`**. Aucune donnée ne quitte votre appareil, aucun compte n'est requis. Les données existantes sont migrées automatiquement : à la première ouverture, les habitudes et rappels par défaut sont copiés dans les données, sans toucher à l'historique.
 
 ### 17. ♿ Accessibilité & confort
 
@@ -197,9 +233,9 @@ Barres de progression avec rôle ARIA, libellés accessibles sur les boutons d'i
 
 ```
 habitstracker/
-├── index.html          # Structure des pages, modales (humeur, profil, sommeil), overlays (respiration, méditation)
+├── index.html          # Structure des pages, modales (humeur, profil, sommeil, habitude, rappel), overlays (respiration, méditation)
 ├── style.css           # Design system « Encre » (variables CSS, thèmes clair / sombre)
-├── script.js           # Logique complète : données, XP, séries, succès, rendu, audio, notifications
+├── script.js           # Logique complète : données, habitudes personnalisées, XP, séries, succès, rendu, audio, rappels
 ├── sw.js               # Service Worker (cache, hors-ligne, clic sur notification)
 ├── manifest.json       # Manifeste PWA
 └── assets/
@@ -217,5 +253,6 @@ habitstracker/
 
 ## 🧭 À venir
 
-- Ajout, modification et suppression d'habitudes personnalisées
 - Sessions de méditation guidée
+- Rappels Web Push (notifications app fermée, nécessite un petit serveur)
+- Réorganisation des habitudes par glisser-déposer

@@ -1,11 +1,11 @@
-const HABITS = [
-  {id:'sleep',    name:'Sommeil',           emoji:'💤', type:'good',    color:'#8EA2FF', freq:'Tous les jours',      weekdayOnly:true},
+const DEFAULT_HABITS = [
+  {id:'sleep',    name:'Sommeil',           emoji:'💤', type:'good',    color:'#8EA2FF', freq:'Lundi - Vendredi',    weekdayOnly:true},
   {id:'projets',  name:'Projets perso',     emoji:'🚀', type:'good',    color:'#C79BFF', freq:'Tous les jours',      weekdayOnly:false},
   {id:'work',     name:'Travail',           emoji:'💼', type:'good',    color:'#FFD23F', freq:'Lundi - Vendredi',    weekdayOnly:true},
   {id:'gym',      name:'Gym',               emoji:'🏋️', type:'good',    color:'#52E0A1', freq:'Lundi - Vendredi',    weekdayOnly:true},
   {id:'running',  name:'Running',           emoji:'🏃', type:'counter', color:'#FF8A4C', freq:'5 jours par semaine', weekdayOnly:false, step:1, goal:5, max:15, unit:'km'},
   {id:'setp',     name:'Pas',               emoji:'👣', type:'counter', color:'#2EC4B6', freq:'Tous les jours',      weekdayOnly:false, step:1000, goal:10000, max:20000, unit:'pas'},
-  {id:'drink',    name:"Boire de l'eau",    emoji:'💧', type:'drink',   color:'#52C7F2', freq:'Tous les jours',      weekdayOnly:false},
+  {id:'drink',    name:"Boire de l'eau",    emoji:'💧', type:'drink',   color:'#52C7F2', freq:'Tous les jours',      weekdayOnly:false, step:250, goal:2000, max:5000, unit:'ml'},
   {id:'read',     name:'15min Lecture',     emoji:'📚', type:'counter', color:'#FF7EB0', freq:'Tous les jours',      weekdayOnly:false, optional:true, step:5, goal:15, max:30, unit:'min'},
   {id:'cleaning', name:'Nettoyage',         emoji:'🧹', type:'weekly',  color:'#C3E34A', freq:'Tous les dimanches',  weekdayOnly:false, optional:true},
 ];
@@ -30,7 +30,7 @@ const HABIT_ICONS = {
 
 function habitIconMarkup(habit) {
   const p = HABIT_ICONS[habit.id];
-  if (!p) return habit.emoji;
+  if (!p) return esc(habit.emoji || '⭐');
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
@@ -40,13 +40,18 @@ function icon(name) {
   return p ? `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>` : '';
 }
 const fmtNum = n => Number(n).toLocaleString('fr-FR');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function progressBar(pct, label) {
-  return `<div class="pbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${label}"><div class="pbar-fill" style="width:${pct}%"></div></div>`;
+  return `<div class="pbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${esc(label)}"><div class="pbar-fill" style="width:${pct}%"></div></div>`;
+}
+function drinkCfg() {
+  const h = HABITS.find(x => x.type === 'drink');
+  return { goal: (h && h.goal) || DRINK_GOAL, step: (h && h.step) || DRINK_STEP, max: (h && h.max) || DRINK_MAX };
 }
 function habitProgress(h, k) {
-  if (h.type === 'drink') return { v: getDrinkMl(k), goal: DRINK_GOAL, max: DRINK_MAX, step: DRINK_STEP, unit: 'ml' };
-  return { v: getCounterVal(h.id, k), goal: h.goal, max: h.max, step: h.step, unit: h.unit || '' };
+  if (h.type === 'drink') { const c = drinkCfg(); return { v: getDrinkMl(k), goal: c.goal, max: c.max, step: c.step, unit: 'ml' }; }
+  return { v: getCounterVal(h.id, k), goal: h.goal, max: h.max, step: h.step, unit: esc(h.unit || '') };
 }
 function dayProgress(h, k, d) {
   if (h.type === 'drink' || h.type === 'counter') { const p = habitProgress(h, k); return Math.min(1, p.v / p.goal); }
@@ -87,13 +92,14 @@ const addDays   = (d,n) => { const r=new Date(d); r.setDate(r.getDate()+n); retu
 const today     = () => fmtDate(new Date());
 const isWeekend = d => { const dow=d.getDay(); return dow===0||dow===6; };
 const isDayActive = (habit, dateObj) => {
+  if (habit.since && fmtDate(dateObj) < habit.since) return false;
   if (habit.activeDays) return habit.activeDays.includes(dateObj.getDay());
   if (habit.weekdayOnly) return !isWeekend(dateObj);
   return true;
 };
 
-function getDrinkMl(k) { const v=DB.habits['drink'].logs[k]; return typeof v==='number'?v:v==='done'?DRINK_GOAL:0; }
-function isDrinkDone(k) { return getDrinkMl(k)>=DRINK_GOAL; }
+function getDrinkMl(k) { const e=DB.habits['drink']; if(!e) return 0; const v=e.logs[k]; return typeof v==='number'?v:v==='done'?drinkCfg().goal:0; }
+function isDrinkDone(k) { return getDrinkMl(k)>=drinkCfg().goal; }
 function isBadFail(id,k) { return DB.habits[id].logs[k]==='fail'; }
 function getCounterVal(id,k) { const v=DB.habits[id].logs[k]; return typeof v==='number'?v:0; }
 function isCounterDone(habit,k) { return getCounterVal(habit.id,k)>=habit.goal; }
@@ -116,13 +122,23 @@ function isHabitDoneOn(habit,k,dateObj) {
 function loadData() {
   try { const raw=localStorage.getItem('ht-v2.6'); if(raw) return JSON.parse(raw); } catch(e){}
   const d={createdAt:today(),habits:{},profile:{name:''},xp:0,moods:{},unlockedAchievements:[],perfectDaysClaimed:[],penaltiesApplied:[]};
-  HABITS.forEach(h=>d.habits[h.id]={logs:{}});
+  DEFAULT_HABITS.forEach(h=>d.habits[h.id]={logs:{}});
   return d;
 }
 function saveData() { localStorage.setItem('ht-v2.6',JSON.stringify(DB)); }
 
 let DB = loadData();
+const DEFAULT_REMINDERS = [
+  {id:'r_work',    title:'💼 Mode travail',        body:'Mode concentration activé.',  hour:8,  minute:30, days:[1,2,3,4,5],     habitId:'work',    enabled:true},
+  {id:'r_running', title:'🏃 Heure de courir',     body:'Enfile tes baskets !',        hour:17, minute:30, days:[1,2,3,4,5],     habitId:'running', enabled:true},
+  {id:'r_sleep',   title:'💤 Extinction des feux', body:'Ton lit te réclame.',         hour:21, minute:0,  days:[1,2,3,4,5],     habitId:'',        enabled:true},
+  {id:'r_phone',   title:'📵 Téléphone posé',      body:'Branche ton téléphone loin.', hour:21, minute:0,  days:[0,1,2,3,4,5,6], habitId:'',        enabled:true},
+];
+// Les habitudes vivent désormais dans DB (migration : on part des habitudes par défaut).
+if(!Array.isArray(DB.habitDefs)) DB.habitDefs=JSON.parse(JSON.stringify(DEFAULT_HABITS));
+let HABITS = DB.habitDefs;
 HABITS.forEach(h=>{ if(!DB.habits[h.id]) DB.habits[h.id]={logs:{}}; });
+if(!Array.isArray(DB.reminders)) DB.reminders=JSON.parse(JSON.stringify(DEFAULT_REMINDERS));
 if(!DB.createdAt) DB.createdAt=today();
 if(!DB.profile) DB.profile={name:''};
 if(DB.profile.soundEnabled===undefined) DB.profile.soundEnabled=true;
@@ -263,6 +279,7 @@ function checkPerfectWeek() {
 }
 function checkGymMonth() {
   const mk=today().slice(0,7);
+  if(!DB.habits['gym']) return false;
   const cnt=Object.entries(DB.habits['gym'].logs).filter(([k,v])=>k.startsWith(mk)&&v==='done').length;
   return cnt>=20;
 }
@@ -273,7 +290,7 @@ function checkAchievements() {
 }
 function checkPerfectDayBonus() {
   const t=today(); if(DB.perfectDaysClaimed.includes(t)) return;
-  if(countDoneToday()===requiredToday()){ DB.perfectDaysClaimed.push(t); giveXP(50); setTimeout(()=>showToast('Journée parfaite ! +50 XP',3500,'star'),600); saveData(); }
+  if(requiredToday()>0&&countDoneToday()===requiredToday()){ DB.perfectDaysClaimed.push(t); giveXP(50); setTimeout(()=>showToast('Journée parfaite ! +50 XP',3500,'star'),600); saveData(); }
 }
 function checkDailyPenalties() {}
 
@@ -297,24 +314,30 @@ function toggleHabit(id) {
   }
   saveData(); checkAchievements(); afterToggle(id);
 }
+function checkPerfectNow() {
+  const req=requiredToday();
+  if(req>0&&countDoneToday()===req){ launchConfetti(); playSound('fanfare'); checkPerfectDayBonus(); }
+}
 function afterToggle(id) {
-  if(countDoneToday()===requiredToday()){ launchConfetti(); playSound('fanfare'); checkPerfectDayBonus(); }
+  checkPerfectNow();
   renderActivePage();
   const el=document.querySelector(`[data-habit-id="${id}"]`);
   if(el){ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
 }
-function addDrink() { addDrinkAmount(DRINK_STEP); }
+function addDrink() { addDrinkAmount(drinkCfg().step); }
 function addDrinkAmount(ml) {
-  const t=today(); const cur=getDrinkMl(t);
-  if(cur>=DRINK_MAX) return;
-  const next=Math.min(DRINK_MAX, cur+ml);
+  const c=drinkCfg(); const t=today(); const cur=getDrinkMl(t);
+  if(cur>=c.max) return;
+  const next=Math.min(c.max, cur+ml);
   DB.habits['drink'].logs[t]=next;
-  if(next>=DRINK_GOAL&&cur<DRINK_GOAL){playSound('drink');showToast("Objectif d'hydratation atteint ! +10 XP",3200,'drink');giveXP(10);}
+  const crossed=next>=c.goal&&cur<c.goal;
+  if(crossed){playSound('drink');showToast("Objectif d'hydratation atteint ! +10 XP",3200,'drink');giveXP(10);}
   saveData(); checkAchievements(); renderActivePage();
+  if(crossed) checkPerfectNow();
 }
 function removeDrink() {
   const t=today(); const cur=getDrinkMl(t); if(cur<=0) return;
-  const next=Math.max(0,cur-DRINK_STEP);
+  const next=Math.max(0,cur-drinkCfg().step);
   if(next===0){delete DB.habits['drink'].logs[t];playSound('undo');}
   else{DB.habits['drink'].logs[t]=next; playSound('undo');}
   saveData(); renderActivePage();
@@ -322,15 +345,17 @@ function removeDrink() {
 function addCounter(id) {
   const habit=HABITS.find(h=>h.id===id); const t=today(); const cur=getCounterVal(id,t);
   if(cur>=habit.max) return;
-  const next=cur+habit.step;
+  const next=Math.min(habit.max,Math.round((cur+habit.step)*100)/100);
   DB.habits[id].logs[t]=next;
-  if(next>=habit.goal&&cur<habit.goal){playSound('done');showToast(`${habit.name} : objectif atteint ! +10 XP`,3200,habit.id);giveXP(10);}
+  const crossed=next>=habit.goal&&cur<habit.goal;
+  if(crossed){playSound('done');showToast(`${habit.name} : objectif atteint ! +10 XP`,3200,habit.id);giveXP(10);}
   saveData(); checkAchievements(); renderActivePage();
+  if(crossed) checkPerfectNow();
 }
 function removeCounter(id) {
   const habit=HABITS.find(h=>h.id===id); const t=today(); const cur=getCounterVal(id,t);
   if(cur<=0) return;
-  const next=Math.max(0,cur-habit.step);
+  const next=Math.max(0,Math.round((cur-habit.step)*100)/100);
   if(next===0){delete DB.habits[id].logs[t];}
   else{DB.habits[id].logs[t]=next;}
   playSound('undo'); saveData(); checkAchievements(); renderActivePage();
@@ -400,7 +425,7 @@ function renderHero() {
   const perfect=active.length>0&&done.length===active.length;
   const date=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   const level=calcLevel(DB.xp);
-  const strip=active.map(h=>{ const f=dayProgress(h,t,todayDate); return `<span class="ink-seg${f>=1?' done':''}" style="--ink:${h.color};--fill:${Math.round(f*100)}%" title="${h.name}"></span>`; }).join('');
+  const strip=active.map(h=>{ const f=dayProgress(h,t,todayDate); return `<span class="ink-seg${f>=1?' done':''}" style="--ink:${h.color};--fill:${Math.round(f*100)}%" title="${esc(h.name)}"></span>`; }).join('');
   el.innerHTML=`
     <div class="hero-date">${date}</div>
     <div class="hero-score">
@@ -417,6 +442,7 @@ function renderTodayTab() {
   const container=document.getElementById('todayHabits'); if(!container) return;
   const t=today(); const todayDate=new Date(); todayDate.setHours(0,0,0,0);
   container.innerHTML='';
+  if(!HABITS.some(h=>isDayActive(h,todayDate))) container.innerHTML=todayEmptyNote();
   HABITS.forEach(habit=>{
     if(!isDayActive(habit,todayDate)) return;
     const card=document.createElement('div');
@@ -432,7 +458,7 @@ function renderTodayTab() {
         <div class="today-card-left">
           <div class="today-emoji-box">${habitIconMarkup(habit)}</div>
           <div class="today-card-info">
-            <div class="today-card-name">${habit.name}</div>
+            <div class="today-card-name">${esc(habit.name)}</div>
             ${subMarkup}
           </div>
         </div>
@@ -448,6 +474,9 @@ function renderTodayTab() {
   });
 }
 
+function todayEmptyNote() {
+  return `<div class="empty-note">Aucune habitude prévue aujourd'hui.<br>Appuie sur + pour en créer une.</div>`;
+}
 function buildTodaySubLabel(habit,t,todayDate) {
   const streak=calcStreak(habit).current;
   if(habit.type==='bad') {
@@ -466,7 +495,7 @@ function buildTodayControl(habit,t,todayDate) {
     const hint=p.v>=p.goal?'Objectif atteint':`reste ${fmtNum(p.goal-p.v)} ${p.unit}`;
     const minus=`<button class="step-btn step-btn-minus" aria-label="Retirer ${fmtNum(p.step)} ${p.unit}" onclick="${isDrink?'removeDrink()':`removeCounter('${habit.id}')`}"${p.v<=0?' disabled':''}>−</button>`;
     const adds=atMax?'':(isDrink
-      ? `<button class="step-btn" onclick="addDrinkAmount(250)">+250 ml</button><button class="step-btn" onclick="addDrinkAmount(500)">+500 ml</button>`
+      ? `<button class="step-btn" onclick="addDrinkAmount(${p.step})">+${fmtNum(p.step)} ml</button><button class="step-btn" onclick="addDrinkAmount(${p.step*2})">+${fmtNum(p.step*2)} ml</button>`
       : `<button class="step-btn" onclick="addCounter('${habit.id}')">+${fmtNum(p.step)} ${p.unit}</button>`);
     return `<div class="ctl">
       <div class="ctl-head">
@@ -524,7 +553,7 @@ function renderWeeklyTab() {
         <div class="habit-card-left">
           <div class="habit-card-emoji">${habitIconMarkup(habit)}</div>
           <div>
-            <div class="habit-card-name">${habit.name}</div>
+            <div class="habit-card-name">${esc(habit.name)}</div>
             <div class="habit-card-freq">${habit.freq||'Tous les jours'}</div>
           </div>
         </div>
@@ -542,7 +571,7 @@ function toggleHabitOnDate(id, dateKey, dotEl) {
     if(DB.habits[id].logs[dateKey]==='fail') delete DB.habits[id].logs[dateKey];
     else DB.habits[id].logs[dateKey]='fail';
   } else if(habit.type==='counter'||habit.type==='drink') {
-    const goal=habit.type==='drink'?DRINK_GOAL:habit.goal;
+    const goal=habit.type==='drink'?drinkCfg().goal:habit.goal;
     const cur=habit.type==='drink'?getDrinkMl(dateKey):getCounterVal(id,dateKey);
     if(cur>=goal) delete DB.habits[id].logs[dateKey]; else DB.habits[id].logs[dateKey]=goal;
   } else if(habit.type==='weekly') {
@@ -590,7 +619,7 @@ function renderOverallTab() {
         <div class="habit-card-left">
           <div class="habit-card-emoji">${habitIconMarkup(habit)}</div>
           <div>
-            <div class="habit-card-name">${habit.name}</div>
+            <div class="habit-card-name">${esc(habit.name)}</div>
             <div class="habit-card-freq">${habit.freq||'Tous les jours'}</div>
           </div>
         </div>
@@ -1006,6 +1035,7 @@ function renderMyHabits() {
   const container=document.getElementById('myHabitsContent'); if(!container) return;
   const todayDate=new Date(); todayDate.setHours(0,0,0,0);
   const t=today();
+  if(HABITS.length===0){ container.innerHTML=`<div class="empty-note">Aucune habitude pour l'instant.<br>Appuie sur + pour créer la première.</div>`; return; }
   container.innerHTML=`<div class="my-habits-list">
     ${HABITS.map(h=>{
       const streak=calcStreak(h).current;
@@ -1016,11 +1046,11 @@ function renderMyHabits() {
       return `<div class="my-habit-row" data-habit-id="${h.id}" style="--ink:${h.color}">
         <div class="my-habit-emoji">${habitIconMarkup(h)}</div>
         <div class="my-habit-info">
-          <div class="my-habit-name">${h.name}</div>
-          <div class="my-habit-meta">${meta}</div>
+          <div class="my-habit-name">${esc(h.name)}</div>
+          <div class="my-habit-meta"><span>${meta}</span><span class="streak-inline">${icon('flame')}${streak} j</span></div>
           ${live?progressBar(Math.min(100,Math.round(dayProgress(h,t,todayDate)*100)),h.name).replace('class="pbar"','class="pbar pbar-thin"'):''}
         </div>
-        <div class="my-habit-streak">${icon('flame')}${streak} j</div>
+        <button type="button" class="my-habit-edit" onclick="openHabitForm('${h.id}')" aria-label="Modifier ${esc(h.name)}">${icon('edit')}</button>
         <div class="habit-toggle-btn${done?' done':''}"${live?' aria-hidden="true"':` onclick="toggleHabit('${h.id}')"`}>
           <svg class="check-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10 8 14 16 6"/></svg>
         </div>
@@ -1029,7 +1059,268 @@ function renderMyHabits() {
   </div>`;
 }
 
-function openAddHabit() { showToast('La gestion des habitudes arrive bientôt.',2500); }
+/* ═══════════ Habitudes personnalisées ═══════════ */
+const HABIT_COLORS = ['#8EA2FF','#C79BFF','#FFD23F','#52E0A1','#FF8A4C','#2EC4B6','#52C7F2','#FF7EB0','#C3E34A','#FF6B6B','#F7B267','#9BE0C4'];
+const HABIT_EMOJIS = ['⭐','🎯','🧘','🍎','🥗','💊','🦷','🛏️','🚿','🎸','✍️','🎨','🧠','🌱','🐕','☕','🚭','💰','🏊','🚴','🧗','📝','🎮','🌞'];
+const ALL_DAYS = [0,1,2,3,4,5,6];
+const WEEKDAYS = [1,2,3,4,5];
+const DOW_ORDER = [1,2,3,4,5,6,0];
+const DOW_LETTER = {1:'L',2:'M',3:'M',4:'J',5:'V',6:'S',0:'D'};
+const KIND_INFO = [
+  { k:'good',    label:'Case à cocher', hint:'Un tap par jour' },
+  { k:'counter', label:'Compteur',      hint:'Une quantité à atteindre' },
+  { k:'water',   label:'Eau',           hint:'Une boisson, en ml' },
+  { k:'weekly',  label:'Hebdomadaire',  hint:'Une fois par semaine suffit' },
+];
+const KIND_DEFAULTS = {
+  counter: { goal:10,   step:1,   max:20,   unit:'' },
+  water:   { goal:2000, step:250, max:5000, unit:'ml' },
+};
+
+const pad2 = n => String(n).padStart(2,'0');
+const num  = v => { const n = parseFloat(String(v).replace(',','.')); return Number.isFinite(n) ? n : NaN; };
+const nz   = (v,d) => v == null ? d : v;
+
+function kindLabel(k) {
+  if (k === 'drink') return 'Eau';
+  const i = KIND_INFO.find(x => x.k === k);
+  return i ? i.label : k;
+}
+function daysLabel(days) {
+  const d = [...new Set(days)].sort((a,b) => ((a+6)%7) - ((b+6)%7));
+  if (d.length === 7) return 'Tous les jours';
+  if (d.length === 5 && WEEKDAYS.every(x => d.includes(x))) return 'Lundi - Vendredi';
+  if (d.length === 2 && d.includes(6) && d.includes(0)) return 'Week-end';
+  return d.map(x => DAY_SHORT[(x+6)%7]).join(', ');
+}
+function habitDays(h) {
+  if (h.activeDays) return h.activeDays.slice();
+  return h.weekdayOnly ? WEEKDAYS.slice() : ALL_DAYS.slice();
+}
+
+let hf = null; // état du formulaire habitude
+
+function openAddHabit() { openHabitForm(); }
+
+function openHabitForm(id) {
+  const h = id ? HABITS.find(x => x.id === id) : null;
+  if (id && !h) return;
+  if (h) {
+    hf = {
+      mode:'edit', id:h.id, builtin:!h.custom, type:h.type,
+      kind: h.type === 'drink' ? 'drink' : h.type,
+      name:h.name, emoji:h.emoji || '⭐', color:h.color,
+      days:habitDays(h), daysTouched:false, optional:!!h.optional,
+      goal:nz(h.goal,''), step:nz(h.step,''), max:nz(h.max,''), unit:h.unit || '',
+    };
+  } else {
+    const used = HABITS.map(x => x.color);
+    hf = {
+      mode:'create', id:null, builtin:false, type:'good', kind:'good',
+      name:'', emoji:'⭐', color:HABIT_COLORS.find(c => !used.includes(c)) || HABIT_COLORS[0],
+      days:ALL_DAYS.slice(), daysTouched:true, optional:false,
+      goal:'', step:'', max:'', unit:'',
+    };
+  }
+  document.getElementById('habitFormTitle').textContent = h ? 'Modifier l’habitude' : 'Nouvelle habitude';
+  renderHabitForm();
+  document.querySelector('#habitModal .modal-card').scrollTop = 0;
+  document.getElementById('habitModal').classList.add('open');
+  if (!h) setTimeout(() => { const el = document.getElementById('hfName'); if (el) el.focus(); }, 120);
+}
+function closeHabitForm() {
+  hf = null;
+  document.getElementById('habitModal').classList.remove('open');
+}
+
+function hfInput(key, val) { if (hf) hf[key] = val; }
+function hfSet(key, val)   { if (!hf) return; hf[key] = val; renderHabitForm(); }
+function hfToggleDay(d) {
+  if (!hf) return;
+  hf.days = hf.days.includes(d) ? hf.days.filter(x => x !== d) : [...hf.days, d];
+  hf.daysTouched = true;
+  renderHabitForm();
+}
+function hfDays(preset) {
+  if (!hf) return;
+  hf.days = preset === 'week' ? WEEKDAYS.slice() : ALL_DAYS.slice();
+  hf.daysTouched = true;
+  renderHabitForm();
+}
+function setHabitKind(k) {
+  if (!hf || hf.mode !== 'create') return;
+  hf.kind = k;
+  const d = KIND_DEFAULTS[k];
+  if (d) { hf.goal = d.goal; hf.step = d.step; hf.max = d.max; hf.unit = d.unit; }
+  renderHabitForm();
+}
+
+function renderHabitForm() {
+  const el = document.getElementById('habitFormBody');
+  if (!el || !hf) return;
+  const isEdit = hf.mode === 'edit';
+  const k = hf.kind;
+  const counterLike = k === 'counter' || k === 'water' || k === 'drink';
+  const waterLike   = k === 'water' || k === 'drink';
+
+  const kindBlock = isEdit
+    ? `<div class="modal-section">
+         <label class="modal-label">Type</label>
+         <div class="hf-fixed">${esc(kindLabel(k))}</div>
+         <div class="hf-hint">Le type ne peut pas être modifié après la création.</div>
+       </div>`
+    : `<div class="modal-section">
+         <label class="modal-label">Type</label>
+         <div class="hf-seg" role="group" aria-label="Type d’habitude">
+           ${KIND_INFO.map(i => `<button type="button" class="hf-chip hf-kind${k === i.k ? ' selected' : ''}" aria-pressed="${k === i.k}" onclick="setHabitKind('${i.k}')"><b>${i.label}</b><span>${i.hint}</span></button>`).join('')}
+         </div>
+       </div>`;
+
+  const emojiBlock = hf.builtin ? '' : `
+    <div class="modal-section">
+      <label class="modal-label" for="hfEmoji">Icône</label>
+      <div class="hf-emoji-row">
+        <input id="hfEmoji" class="pseudo-input hf-emoji-input" maxlength="8" value="${esc(hf.emoji)}" aria-label="Emoji de l’habitude" oninput="hfInput('emoji',this.value)">
+        <span class="hf-hint" style="margin:0">Tape un emoji ou choisis-en un.</span>
+      </div>
+      <div class="hf-grid">
+        ${HABIT_EMOJIS.map(e => `<button type="button" class="hf-emoji-btn${hf.emoji === e ? ' selected' : ''}" onclick="hfSet('emoji','${e}')" aria-label="Emoji ${e}">${e}</button>`).join('')}
+      </div>
+    </div>`;
+
+  const colorBlock = `
+    <div class="modal-section">
+      <label class="modal-label">Couleur</label>
+      <div class="hf-swatches">
+        ${HABIT_COLORS.map(c => `<button type="button" class="hf-swatch${hf.color === c ? ' selected' : ''}" style="--c:${c}" aria-label="Couleur ${c}" aria-pressed="${hf.color === c}" onclick="hfSet('color','${c}')"></button>`).join('')}
+      </div>
+    </div>`;
+
+  const daysBlock = k === 'weekly' ? '' : `
+    <div class="modal-section">
+      <label class="modal-label">Jours actifs</label>
+      <div class="hf-days" role="group" aria-label="Jours actifs">
+        ${DOW_ORDER.map(d => `<button type="button" class="hf-day${hf.days.includes(d) ? ' selected' : ''}" aria-pressed="${hf.days.includes(d)}" aria-label="${DAY_FULL[d]}" onclick="hfToggleDay(${d})">${DOW_LETTER[d]}</button>`).join('')}
+      </div>
+      <div class="hf-presets">
+        <button type="button" class="hf-link" onclick="hfDays('all')">Tous les jours</button>
+        <button type="button" class="hf-link" onclick="hfDays('week')">Lun – Ven</button>
+      </div>
+    </div>`;
+
+  const goalBlock = !counterLike ? '' : `
+    <div class="modal-section">
+      <label class="modal-label">Objectif</label>
+      <div class="hf-num-grid">
+        <div class="hf-num-field"><label for="hfGoal">Objectif du jour</label>
+          <input id="hfGoal" class="pseudo-input hf-input" type="number" inputmode="decimal" step="any" min="0" value="${esc(hf.goal)}" oninput="hfInput('goal',this.value)"></div>
+        <div class="hf-num-field"><label for="hfStep">Ajout par tap</label>
+          <input id="hfStep" class="pseudo-input hf-input" type="number" inputmode="decimal" step="any" min="0" value="${esc(hf.step)}" oninput="hfInput('step',this.value)"></div>
+        <div class="hf-num-field"><label for="hfMax">Maximum</label>
+          <input id="hfMax" class="pseudo-input hf-input" type="number" inputmode="decimal" step="any" min="0" value="${esc(hf.max)}" oninput="hfInput('max',this.value)"></div>
+        <div class="hf-num-field"><label for="hfUnit">Unité</label>
+          <input id="hfUnit" class="pseudo-input hf-input" type="text" maxlength="8" placeholder="km, pages…" value="${esc(waterLike ? 'ml' : hf.unit)}"${waterLike ? ' readonly' : ''} oninput="hfInput('unit',this.value)"></div>
+      </div>
+    </div>`;
+
+  el.innerHTML = `
+    <div class="modal-section">
+      <label class="modal-label" for="hfName">Nom</label>
+      <input id="hfName" class="pseudo-input hf-input" type="text" maxlength="30" placeholder="Ex. Méditer, Vitamines…" value="${esc(hf.name)}" oninput="hfInput('name',this.value)" onkeydown="if(event.key==='Enter') saveHabitForm()">
+    </div>
+    ${kindBlock}
+    ${emojiBlock}
+    ${colorBlock}
+    ${daysBlock}
+    ${goalBlock}
+    <div class="hf-switch">
+      <div>
+        <div class="pref-label-text">Optionnelle</div>
+        <div class="pref-hint">Ne compte pas dans la journée parfaite</div>
+      </div>
+      <button type="button" class="pref-toggle ${hf.optional ? 'on' : 'off'}" role="switch" aria-checked="${hf.optional}" aria-label="Habitude optionnelle" onclick="hfSet('optional',!hf.optional)">${hf.optional ? 'Activé' : 'Désactivé'}</button>
+    </div>
+    <div class="hf-actions">
+      <button type="button" class="modal-save-btn" onclick="saveHabitForm()">${isEdit ? 'Enregistrer' : 'Créer l’habitude'}</button>
+      ${isEdit ? `<button type="button" class="modal-reset-btn" onclick="deleteHabitFromForm()">${icon('trash')} Supprimer l’habitude</button>` : ''}
+    </div>`;
+}
+
+function saveHabitForm() {
+  if (!hf) return;
+  const name = hf.name.trim();
+  if (!name) { showToast('Donne un nom à ton habitude', 2500, 'alert'); return; }
+  if (HABITS.some(x => x.id !== hf.id && x.name.trim().toLowerCase() === name.toLowerCase())) {
+    showToast('Une habitude porte déjà ce nom', 2800, 'alert'); return;
+  }
+  const k = hf.kind;
+  const counterLike = k === 'counter' || k === 'water' || k === 'drink';
+  const waterLike   = k === 'water' || k === 'drink';
+  if (k !== 'weekly' && hf.days.length === 0) { showToast('Choisis au moins un jour', 2800, 'alert'); return; }
+
+  let goal, step, max;
+  if (counterLike) {
+    goal = num(hf.goal); step = num(hf.step); max = num(hf.max);
+    if (!(goal > 0 && step > 0 && max > 0)) { showToast('Objectif, ajout et maximum doivent être positifs', 3200, 'alert'); return; }
+    if (max < goal)  { showToast('Le maximum doit être au moins égal à l’objectif', 3200, 'alert'); return; }
+    if (step > max)  { showToast('L’ajout par tap dépasse le maximum', 3000, 'alert'); return; }
+  }
+  const unit = waterLike ? 'ml' : String(hf.unit || '').trim().slice(0, 8);
+
+  if (hf.mode === 'create') {
+    const h = {
+      id: 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      name, emoji: (hf.emoji || '').trim() || '⭐',
+      type: k === 'water' ? 'counter' : k,
+      color: hf.color, custom: true, since: today(),
+      optional: hf.optional, weekdayOnly: false,
+    };
+    if (k === 'weekly') h.freq = 'Chaque semaine';
+    else {
+      if (hf.days.length < 7) h.activeDays = hf.days.slice();
+      h.freq = daysLabel(hf.days);
+    }
+    if (counterLike) { h.goal = goal; h.step = step; h.max = max; h.unit = unit; }
+    HABITS.push(h);
+    DB.habits[h.id] = { logs:{} };
+    saveData();
+    closeHabitForm();
+    renderActivePage();
+    showToast(`« ${name} » ajoutée`, 2600, 'star');
+    return;
+  }
+
+  const h = HABITS.find(x => x.id === hf.id);
+  if (!h) { closeHabitForm(); return; }
+  h.name = name;
+  h.color = hf.color;
+  h.optional = hf.optional;
+  if (!hf.builtin) h.emoji = (hf.emoji || '').trim() || '⭐';
+  if (counterLike) { h.goal = goal; h.step = step; h.max = max; h.unit = unit; }
+  if (k !== 'weekly' && hf.daysTouched) {
+    h.weekdayOnly = false;
+    if (hf.days.length === 7) delete h.activeDays; else h.activeDays = hf.days.slice();
+    h.freq = daysLabel(hf.days);
+  }
+  saveData();
+  closeHabitForm();
+  renderActivePage();
+  showToast('Habitude mise à jour', 2200);
+}
+
+function deleteHabitFromForm() {
+  if (!hf || hf.mode !== 'edit') return;
+  const h = HABITS.find(x => x.id === hf.id);
+  if (!h) { closeHabitForm(); return; }
+  if (!confirm(`Supprimer « ${h.name} » ?\n\nSon historique sera effacé définitivement.`)) return;
+  HABITS.splice(HABITS.indexOf(h), 1);
+  delete DB.habits[h.id];
+  (DB.reminders || []).forEach(r => { if (r.habitId === h.id) r.habitId = ''; });
+  saveData();
+  closeHabitForm();
+  renderActivePage();
+  showToast('Habitude supprimée', 2200, 'trash');
+}
 
 function renderAchievements() {
   const container=document.getElementById('achievementsContent'); if(!container) return;
@@ -1084,7 +1375,7 @@ function renderAchievements() {
 function renderAccount() {
   const container=document.getElementById('accountContent'); if(!container) return;
   const level=calcLevel(DB.xp); const prog=xpProgress(DB.xp);
-  const name=DB.profile.name||'Mon profil';
+  const name=esc(DB.profile.name||'Mon profil');
   const soundOn=DB.profile.soundEnabled!==false;
   const zenOn=!!DB.profile.zenMode;
   const darkOn=DB.profile.darkMode===true;
@@ -1134,6 +1425,8 @@ function renderAccount() {
       </div>
     </div>
 
+    ${remindersSectionHtml()}
+
     <div class="danger-zone-card">
       <div class="account-section-title" style="color:var(--danger);margin-bottom:8px">${icon('alert')} Zone de danger</div>
       <div class="pref-hint" style="margin-bottom:12px">Efface définitivement toutes les données. Action irréversible.</div>
@@ -1174,45 +1467,253 @@ function togglePref(pref) {
   if(activePage==='account') renderAccount();
 }
 
-const NOTIF_SCHEDULE = [
-  {id:'work',   title:'💼 Mode travail — 08:30',body:"Mode concentration activé.",hour:8,minute:30,days:[1,2,3,4,5]},
-  {id:'running',title:'🏃 Heure de courir — 17:30',body:"Enfile tes baskets!",hour:17,minute:30,days:[1,2,3,4,5]},
-  {id:'sleep',  title:'💤 Extinction des feux — 21:00',body:"Ton lit te réclame.",hour:21,minute:0,days:[1,2,3,4,5]},
-  {id:'phone',  title:'📵 Téléphone posé — 21:00',body:"Branche ton téléphone loin.",hour:21,minute:0,days:[0,1,2,3,4,5,6]},
-];
-let _notifTimers=[];
+/* ═══════════ Rappels configurables ═══════════ */
+let _notifTimers = [];
+
+function notifsGranted() {
+  return !!DB.profile.notifsEnabled && ('Notification' in window) && Notification.permission === 'granted';
+}
 
 function initNotifications() {
-  const on=!!DB.profile.notifsEnabled;
-  ['notifsToggle'].forEach(id=>{ const btn=document.getElementById(id); if(btn){btn.textContent=on?'Activé':'Désactivé';btn.className=`pref-toggle ${on?'on':'off'}`;} });
-  if(on&&'Notification' in window&&Notification.permission==='granted') scheduleLocalNotifications();
+  const on = !!DB.profile.notifsEnabled;
+  updateToggleBtn('notifsToggle', on);
+  if (notifsGranted()) scheduleLocalNotifications();
 }
 
 async function toggleNotifications() {
-  if(!('Notification' in window)){ alert('Les notifications ne sont pas prises en charge sur cet appareil.'); return; }
-  if(DB.profile.notifsEnabled){
-    DB.profile.notifsEnabled=false; _notifTimers.forEach(id=>clearTimeout(id)); _notifTimers=[]; saveData();
-    showToast('Notifications désactivées',2500,'bellOff');
-    if(activePage==='account') renderAccount(); return;
+  if (!('Notification' in window)) { alert('Les notifications ne sont pas prises en charge sur cet appareil.'); return; }
+  if (DB.profile.notifsEnabled) {
+    DB.profile.notifsEnabled = false;
+    _notifTimers.forEach(id => clearTimeout(id)); _notifTimers = [];
+    saveData();
+    updateToggleBtn('notifsToggle', false);
+    showToast('Notifications désactivées', 2500, 'bellOff');
+    if (activePage === 'account') renderAccount();
+    return;
   }
-  let perm=Notification.permission;
-  if(perm==='default') perm=await Notification.requestPermission();
-  if(perm==='granted'){
-    DB.profile.notifsEnabled=true; saveData(); scheduleLocalNotifications();
-    showToast(`${NOTIF_SCHEDULE.length} rappels programmés`,3000,'bell');
-  } else { showToast('Notifications bloquées : vérifie les réglages du navigateur',3500,'alert'); }
-  if(activePage==='account') renderAccount();
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    DB.profile.notifsEnabled = true; saveData();
+    updateToggleBtn('notifsToggle', true);
+    scheduleLocalNotifications();
+    const n = (DB.reminders || []).filter(r => r.enabled).length;
+    showToast(`${n} rappel${n > 1 ? 's' : ''} programmé${n > 1 ? 's' : ''}`, 3000, 'bell');
+  } else {
+    showToast('Notifications bloquées : vérifie les réglages du navigateur', 3500, 'alert');
+  }
+  if (activePage === 'account') renderAccount();
+}
+
+/* Prochaine occurrence (Date) d'un rappel, en respectant ses jours. */
+function nextOccurrence(r, from) {
+  from = from || new Date();
+  if (!r.days || !r.days.length) return null;
+  for (let i = 0; i < 8; i++) {
+    const t = new Date(from);
+    t.setDate(t.getDate() + i);
+    t.setHours(r.hour, r.minute, 0, 0);
+    if (t > from && r.days.includes(t.getDay())) return t;
+  }
+  return null;
 }
 
 function scheduleLocalNotifications() {
-  _notifTimers.forEach(id=>clearTimeout(id)); _notifTimers=[];
-  if(!DB.profile.notifsEnabled||!('Notification' in window)||Notification.permission!=='granted') return;
-  NOTIF_SCHEDULE.forEach(n=>{
-    const now=new Date(); const target=new Date(); target.setHours(n.hour,n.minute,0,0);
-    if(target<=now) target.setDate(target.getDate()+1);
-    const ms=target-now;
-    if(ms>0&&ms<25*3600*1000) _notifTimers.push(setTimeout(()=>{ try{new Notification(n.title,{body:n.body,icon:'./assets/icon-192.png'});}catch(e){} },ms));
+  _notifTimers.forEach(id => clearTimeout(id)); _notifTimers = [];
+  if (!notifsGranted()) return;
+  (DB.reminders || []).forEach(r => {
+    if (!r.enabled) return;
+    const t = nextOccurrence(r); if (!t) return;
+    const ms = t.getTime() - Date.now();
+    if (ms <= 0) return;
+    _notifTimers.push(setTimeout(() => fireReminder(r.id, t.getTime()), ms));
   });
+}
+
+function reminderSatisfied(r) {
+  if (!r.habitId) return false;
+  const h = HABITS.find(x => x.id === r.habitId);
+  if (!h || h.type === 'bad') return false;
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  return isHabitDoneOn(h, today(), d);
+}
+
+async function fireReminder(id, targetTs) {
+  const r = (DB.reminders || []).find(x => x.id === id);
+  const late = Date.now() - targetTs;
+  // Ignore un rappel arrivé très en retard (appareil en veille) ou déjà accompli.
+  if (r && r.enabled && late < 10 * 60 * 1000 && !reminderSatisfied(r)) await showReminderNotification(r);
+  scheduleLocalNotifications();
+}
+
+async function showReminderNotification(r) {
+  const opts = { body: r.body || '', icon: './assets/icon-192.png', badge: './assets/icon-192.png', tag: 'ht-' + r.id, data: { url: './' } };
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise(res => setTimeout(() => res(null), 1500))]);
+      if (reg && reg.showNotification) { await reg.showNotification(r.title, opts); return true; }
+    }
+  } catch (e) {}
+  try { new Notification(r.title, opts); return true; } catch (e) { return false; }
+}
+
+async function sendTestNotification() {
+  if (!notifsGranted()) { showToast('Active d’abord les notifications', 3000, 'alert'); return; }
+  const ok = await showReminderNotification({ id: 'test', title: '🔔 Notification test', body: 'Tout fonctionne : tes rappels te parviendront.' });
+  showToast(ok ? 'Notification envoyée' : 'Impossible d’afficher la notification', 2600, ok ? 'bell' : 'alert');
+}
+
+// Les minuteries sont suspendues quand l'app passe en arrière-plan : on replanifie au retour.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleLocalNotifications(); });
+
+/* ── Liste des rappels (page Compte) ── */
+function remindersSectionHtml() {
+  const list = [...(DB.reminders || [])].sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute));
+  const on = notifsGranted();
+  const rows = list.map(r => {
+    const h = r.habitId ? HABITS.find(x => x.id === r.habitId) : null;
+    const sub = daysLabel(r.days) + (h ? ` · ${esc(h.name)}` : '');
+    return `<div class="pref-row reminder-row${r.enabled ? '' : ' off'}" role="button" tabindex="0" onclick="openReminder('${r.id}')" onkeydown="if(event.key==='Enter')openReminder('${r.id}')">
+      <div class="reminder-time">${pad2(r.hour)}:${pad2(r.minute)}</div>
+      <div class="pref-info reminder-info"><div><div class="pref-label-text">${esc(r.title)}</div><div class="pref-hint">${sub}</div></div></div>
+      <button type="button" class="pref-toggle ${r.enabled ? 'on' : 'off'}" role="switch" aria-checked="${r.enabled}" aria-label="Activer le rappel ${esc(r.title)}" onclick="event.stopPropagation();toggleReminder('${r.id}')">${r.enabled ? 'Activé' : 'Désactivé'}</button>
+    </div>`;
+  }).join('');
+  return `<div>
+    <div class="account-section-title">Rappels</div>
+    <div class="pref-card">
+      ${rows || `<div class="pref-row"><div class="pref-hint">Aucun rappel pour l’instant.</div></div>`}
+      <div class="pref-row"><button type="button" class="reminder-add" onclick="openReminder()">+ Ajouter un rappel</button></div>
+    </div>
+    <div class="hf-hint reminders-note">${on
+      ? 'Les rappels sonnent tant que l’app est ouverte ou active en arrière-plan.'
+      : 'Active les notifications dans les préférences pour recevoir tes rappels.'}</div>
+    ${on ? `<button type="button" class="pref-edit reminder-test" onclick="sendTestNotification()">Envoyer une notification test</button>` : ''}
+  </div>`;
+}
+
+function toggleReminder(id) {
+  const r = (DB.reminders || []).find(x => x.id === id); if (!r) return;
+  r.enabled = !r.enabled;
+  saveData(); scheduleLocalNotifications();
+  if (activePage === 'account') renderAccount();
+}
+
+/* ── Formulaire de rappel ── */
+let rf = null;
+
+function openReminder(id) {
+  const r = id ? (DB.reminders || []).find(x => x.id === id) : null;
+  if (id && !r) return;
+  rf = r
+    ? { mode:'edit', id:r.id, title:r.title, body:r.body || '', time:`${pad2(r.hour)}:${pad2(r.minute)}`, days:r.days.slice(), habitId:r.habitId || '', enabled:r.enabled !== false }
+    : { mode:'create', id:null, title:'', body:'', time:'09:00', days:ALL_DAYS.slice(), habitId:'', enabled:true };
+  document.getElementById('reminderFormTitle').textContent = r ? 'Modifier le rappel' : 'Nouveau rappel';
+  renderReminderForm();
+  document.querySelector('#reminderModal .modal-card').scrollTop = 0;
+  document.getElementById('reminderModal').classList.add('open');
+  if (!r) setTimeout(() => { const el = document.getElementById('rfTitle'); if (el) el.focus(); }, 120);
+}
+function closeReminder() {
+  rf = null;
+  document.getElementById('reminderModal').classList.remove('open');
+}
+function rfInput(key, val) { if (rf) rf[key] = val; }
+function rfSet(key, val)   { if (!rf) return; rf[key] = val; renderReminderForm(); }
+function rfToggleDay(d) {
+  if (!rf) return;
+  rf.days = rf.days.includes(d) ? rf.days.filter(x => x !== d) : [...rf.days, d];
+  renderReminderForm();
+}
+function rfDays(preset) {
+  if (!rf) return;
+  rf.days = preset === 'week' ? WEEKDAYS.slice() : ALL_DAYS.slice();
+  renderReminderForm();
+}
+
+function renderReminderForm() {
+  const el = document.getElementById('reminderFormBody');
+  if (!el || !rf) return;
+  const isEdit = rf.mode === 'edit';
+  const habitOpts = HABITS.filter(h => h.type !== 'bad')
+    .map(h => `<option value="${h.id}"${rf.habitId === h.id ? ' selected' : ''}>${esc(h.name)}</option>`).join('');
+  el.innerHTML = `
+    <div class="modal-section">
+      <label class="modal-label" for="rfTitle">Titre</label>
+      <input id="rfTitle" class="pseudo-input hf-input" type="text" maxlength="40" placeholder="Ex. 💊 Vitamines" value="${esc(rf.title)}" oninput="rfInput('title',this.value)">
+    </div>
+    <div class="modal-section">
+      <label class="modal-label" for="rfBody">Message <span class="hf-opt">(facultatif)</span></label>
+      <input id="rfBody" class="pseudo-input hf-input" type="text" maxlength="80" placeholder="Ex. N’oublie pas !" value="${esc(rf.body)}" oninput="rfInput('body',this.value)">
+    </div>
+    <div class="modal-section">
+      <label class="modal-label" for="rfTime">Heure</label>
+      <input id="rfTime" class="sleep-time-input" type="time" value="${esc(rf.time)}" oninput="rfInput('time',this.value)" onchange="rfInput('time',this.value)">
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">Jours</label>
+      <div class="hf-days" role="group" aria-label="Jours du rappel">
+        ${DOW_ORDER.map(d => `<button type="button" class="hf-day${rf.days.includes(d) ? ' selected' : ''}" aria-pressed="${rf.days.includes(d)}" aria-label="${DAY_FULL[d]}" onclick="rfToggleDay(${d})">${DOW_LETTER[d]}</button>`).join('')}
+      </div>
+      <div class="hf-presets">
+        <button type="button" class="hf-link" onclick="rfDays('all')">Tous les jours</button>
+        <button type="button" class="hf-link" onclick="rfDays('week')">Lun – Ven</button>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label" for="rfHabit">Habitude liée <span class="hf-opt">(facultatif)</span></label>
+      <select id="rfHabit" class="pseudo-input hf-input" onchange="rfInput('habitId',this.value)">
+        <option value="">Aucune</option>
+        ${habitOpts}
+      </select>
+      <div class="hf-hint">Si l’habitude est déjà faite à l’heure du rappel, la notification est ignorée.</div>
+    </div>
+    <div class="hf-switch">
+      <div>
+        <div class="pref-label-text">Rappel actif</div>
+        <div class="pref-hint">Désactive-le sans le supprimer</div>
+      </div>
+      <button type="button" class="pref-toggle ${rf.enabled ? 'on' : 'off'}" role="switch" aria-checked="${rf.enabled}" aria-label="Rappel actif" onclick="rfSet('enabled',!rf.enabled)">${rf.enabled ? 'Activé' : 'Désactivé'}</button>
+    </div>
+    <div class="hf-actions">
+      <button type="button" class="modal-save-btn" onclick="saveReminder()">${isEdit ? 'Enregistrer' : 'Créer le rappel'}</button>
+      ${isEdit ? `<button type="button" class="modal-reset-btn" onclick="deleteReminder()">${icon('trash')} Supprimer le rappel</button>` : ''}
+    </div>`;
+}
+
+function saveReminder() {
+  if (!rf) return;
+  const title = rf.title.trim();
+  if (!title) { showToast('Donne un titre au rappel', 2500, 'alert'); return; }
+  const m = /^(\d{1,2}):(\d{2})$/.exec(rf.time || '');
+  if (!m || +m[1] > 23 || +m[2] > 59) { showToast('Choisis une heure valide', 2500, 'alert'); return; }
+  if (rf.days.length === 0) { showToast('Choisis au moins un jour', 2800, 'alert'); return; }
+
+  const data = { title, body: rf.body.trim(), hour: +m[1], minute: +m[2], days: rf.days.slice(), habitId: rf.habitId || '', enabled: rf.enabled };
+  if (!Array.isArray(DB.reminders)) DB.reminders = [];
+  if (rf.mode === 'create') {
+    DB.reminders.push({ id: 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), ...data });
+  } else {
+    const r = DB.reminders.find(x => x.id === rf.id);
+    if (r) Object.assign(r, data);
+  }
+  saveData();
+  scheduleLocalNotifications();
+  closeReminder();
+  if (activePage === 'account') renderAccount();
+  showToast(notifsGranted() ? 'Rappel enregistré' : 'Rappel enregistré : active les notifications pour le recevoir', notifsGranted() ? 2200 : 3600, 'bell');
+}
+
+function deleteReminder() {
+  if (!rf || rf.mode !== 'edit') return;
+  const r = (DB.reminders || []).find(x => x.id === rf.id);
+  if (!r) { closeReminder(); return; }
+  if (!confirm(`Supprimer le rappel « ${r.title} » ?`)) return;
+  DB.reminders = DB.reminders.filter(x => x.id !== r.id);
+  saveData(); scheduleLocalNotifications();
+  closeReminder();
+  if (activePage === 'account') renderAccount();
+  showToast('Rappel supprimé', 2200, 'trash');
 }
 
 function confirmReset() {
