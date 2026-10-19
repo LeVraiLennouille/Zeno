@@ -1,214 +1,221 @@
-# 🌙 HabitsTracker — Application Gamifiée de Suivi d'Habitudes
+# 🌙 HabitsTracker — Suivi d'habitudes gamifié (PWA)
 
-**HabitsTracker** est une application web front-end de suivi d'habitudes qui utilise les principes de la gamification pour vous aider à rester discipliné. Conçue en HTML, CSS et JavaScript Vanilla, elle ne nécessite aucun serveur et sauvegarde toutes vos données directement dans votre navigateur. Elle s'installe comme une application native (PWA) sur mobile et desktop.
-
----
-
-## 📋 Liste Complète des Habitudes
-
-### ✅ Bonnes habitudes (Good)
-| Emoji | Nom | Jours actifs | Options |
-|---|---|---|---|
-| 💤 | Sleep | Lun-ven | — |
-| 🚀 | Personal Projects | Tous les jours | — |
-| 🏋️ | Gym | Lun–Ven | — |
-| 🏃 | Running | Tous les jours |
-| 💼 | Work | Lun–Ven | — |
-| 📚 | Read | Tous les jours | Optionnel |
-| 📵 | Phone out of bed | Tous les jours | — |
-
-### 💧 Suivi de l'eau
-| Emoji | Nom | Palier | Objectif | Maximum |
-|---|---|---|---|---|
-| 💧 | Drink | +250 ml | 2 000 ml | 5 000 ml |
-
-### 🥦 Compteur de portions
-| Emoji | Nom | Palier | Objectif | Maximum |
-|---|---|---|---|---|
-| 🥦 | Fruits & Veggies | +1 portion | 5 portions | 10 portions |
-
-### 🫧 Bichonnage
-| Emoji | Nom | Palier | Objectif | Maximum |
-|---|---|---|---|---|
-| 🫧 | Clean | +1 | 2 | 3 |
-
-### 🚿 Douche
-| Emoji | Nom | États disponibles |
-|---|---|---|
-| 🚿 | Shower | 🥶 Cold (+15 XP) · 😐 Warm (+5 XP) · 🥵 Hot (neutre) |
-
-### 🧹 Propreté
-| Emoji | Nom | Fréquence | Options |
-|---|---|---|---|
-| 🧹 | Cleaning | 1× par semaine | Optionnel |
-
-### 🚫 Mauvaises habitudes — sélecteur de durée *(nouveau)*
-| Emoji | Nom | Choix disponibles |
-|---|---|---|
-| 🎮 | No Gaming | No · 15min · 30min · 1h · 2h · +3h |
-| 📱 | No Scroll | No · 15min · 30min · 1h · +2h |
-| 🎬 | No Films | No · 1 · 2 · +3 |
-
-### 🚫 Mauvaises habitudes — toggle simple
-| Emoji | Nom | Comportement |
-|---|---|---|
-| 🍬 | No extra Sugar | Validé par défaut — un clic = échec du jour |
-
-> Pour les habitudes à **sélecteur de durée**, choisir « No » valide la journée (clean). Toute autre valeur enregistre un **échec** : la série est cassée, la journée n'est pas comptabilisée dans le score, et la cellule du heatmap s'affiche en rouge avec la durée choisie au survol.
+**HabitsTracker** est une application web de suivi d'habitudes qui s'appuie sur la gamification (XP, niveaux, séries, succès) et sur un volet bien-être (humeur, respiration, sommeil). Écrite en HTML, CSS et JavaScript vanilla, elle fonctionne sans serveur ni compte : toutes les données restent dans le navigateur. Elle s'installe comme une application native (PWA) sur mobile et desktop et fonctionne hors-ligne.
 
 ---
 
-## 🚀 Fonctionnalités Complètes
+## 📋 Habitudes suivies
 
-### 1. 📊 Gestion Typologique des Habitudes
+Neuf habitudes sont définies par défaut. Chacune a sa couleur (« encre ») et son icône.
 
-L'application prend en charge **sept types d'habitudes** gérés indépendamment :
+| Icône | Habitude | Type | Jours actifs | Objectif | Compte dans la journée parfaite |
+|---|---|---|---|---|---|
+| 💤 | Sommeil | Case à cocher | Lun–Ven | — | ✅ |
+| 🚀 | Projets perso | Case à cocher | Tous les jours | — | ✅ |
+| 💼 | Travail | Case à cocher | Lun–Ven | — | ✅ |
+| 🏋️ | Gym | Case à cocher | Lun–Ven | — | ✅ |
+| 🏃 | Running | Compteur | Tous les jours | 5 km (+1 km, max 15) | ✅ |
+| 👣 | Pas | Compteur | Tous les jours | 10 000 pas (+1 000, max 20 000) | ✅ |
+| 💧 | Boire de l'eau | Eau | Tous les jours | 2 000 ml (+250 / +500 ml, max 5 000) | ✅ |
+| 📚 | 15 min Lecture | Compteur | Tous les jours | 15 min (+5, max 30) | ❌ optionnelle |
+| 🧹 | Nettoyage | Hebdomadaire | Chaque semaine (dimanche conseillé) | 1 fois par semaine | ❌ optionnelle |
 
-- **`good`** — Tâche binaire à cocher. Certaines sont limitées aux jours de semaine (`weekdayOnly`) ou à des jours spécifiques (`activeDays`). Compatibles Pomodoro et Jokers.
-- **`bad`** — Comportement à éviter. Deux variantes :
-  - **Toggle simple** (`nosugar`) : un clic marque l'échec, un second l'annule.
-  - **Sélecteur de durée** (`nogaming`, `noscroll`, `nofilms`) *(nouveau)* : rangée de boutons inline — choisir « No » = clean, toute autre durée = échec avec la valeur enregistrée.
-- **`drink`** — Suivi quantitatif de l'eau : +250 ml par clic, objectif 2 000 ml, plafond 5 000 ml.
-- **`portion`** — Compteur de portions : +1 par clic, objectif 5, plafond 10.
-- **`counter`** *(nouveau)* — Compteur libre avec step / goal / max configurables par habitude. Barre de progression identique au type `portion`. *Utilisé par Clean (step:1, goal:2, max:3).*
-- **`shower`** — Cycle tri-état : Cold → Warm → Hot → non renseigné. Chaque état a sa couleur et sa valeur XP.
-- **`weekly`** — Tâche hebdomadaire : suffit de la cocher une fois dans la semaine glissante (Lun–Dim).
+---
 
-### 2. 🎮 Gamification et Système de Progression
+## 🚀 Fonctionnalités
 
-- **Gain d'XP par action :**
-  - Bonne habitude complétée : **+10 XP**
-  - Habitude hebdomadaire complétée : **+20 XP**
-  - Objectif eau atteint : **+15 XP**
-  - Objectif portions atteint : **+12 XP**
-  - Objectif counter atteint : **+10 XP**
-  - Douche froide : **+15 XP** · Douche tiède : **+5 XP**
-  - Pomodoro terminé : **+10 XP**
-  - Perfect Day : **+50 XP** bonus
-- **10 niveaux :** Novice → Apprentice → Practitioner → Devotee → Disciplined → Focused → Master → Grandmaster → Legend → Transcendent
-- **Seuils XP :** 0 · 100 · 250 · 500 · 800 · 1 200 · 1 700 · 2 400 · 3 200 · 4 200
-- **Séries (Streaks) :** calculées indépendamment pour chaque habitude, y compris en semaines pour les habituels hebdomadaires.
-- **Perfect Day :** toutes les habitudes non-optionnelles complétées → confettis + fanfare + bonus XP.
+### 1. 🧭 Navigation
 
-### 3. 🏆 Succès (Achievements)
+Un dock flottant en bas de l'écran donne accès à cinq pages : **Accueil**, **Succès**, **Rapport**, **Habitudes** et **Compte**. Seul l'onglet actif affiche son libellé. Le bouton ⋮ de l'accueil ouvre la fenêtre de profil.
 
-| Badge | Nom | Condition |
+### 2. 🏠 Accueil
+
+- **En-tête du jour** : date complète, score « X/Y habitudes faites », niveau actuel et **bande d'encre**, un segment par habitude du jour qui se remplit au fil des validations.
+- **Trois onglets :**
+  - **Aujourd'hui** : cartes des habitudes actives ce jour, avec série en cours et contrôles adaptés à chaque type.
+  - **Semaine** : vue Lun–Dim par habitude ; on peut **cocher ou décocher les jours passés** directement depuis les pastilles.
+  - **Global** : grille de **16 semaines** par habitude (jour validé = plein, manqué = contour pâle, inactif/futur = vide).
+- **Section Bien-être** (onglet Aujourd'hui) : accès rapide à l'humeur, à la respiration, à la méditation et au résumé du sommeil.
+
+### 3. ✅ Types d'habitudes
+
+| Type | Fonctionnement |
+|---|---|
+| **Case à cocher** (`good`) | Validation en un tap, annulable. |
+| **Eau** (`drink`) | Boutons −, +250 ml et +500 ml, barre de progression, plafond à 5 000 ml. |
+| **Compteur** (`counter`) | Pas (`step`), objectif (`goal`), maximum (`max`) et unité configurables par habitude ; barre de progression et bouton − . |
+| **Hebdomadaire** (`weekly`) | Une seule validation suffit pour la semaine (Lun–Dim) ; la série se compte en semaines. |
+
+Le code gère aussi le type `bad` (habitude à éviter, un tap = échec) : il est prêt côté logique, mais aucune habitude de ce type n'est définie dans la version actuelle.
+
+Les habitudes limitées aux jours ouvrés (`weekdayOnly`) ou à des jours précis (`activeDays`) disparaissent de l'onglet Aujourd'hui les jours inactifs et ne pénalisent ni les séries ni les statistiques.
+
+### 4. 🎮 Gamification
+
+**XP gagnée :**
+
+| Action | XP |
+|---|---|
+| Habitude à cocher validée | +10 |
+| Habitude hebdomadaire validée | +20 |
+| Objectif eau atteint | +10 |
+| Objectif d'un compteur atteint (km, pas, lecture) | +10 |
+| Journée parfaite (bonus, une fois par jour) | +50 |
+
+**10 niveaux :** Novice → Apprenti → Pratiquant → Fervent → Discipliné → Concentré → Maître → Grand maître → Légende → Transcendant.
+**Seuils d'XP :** 0 · 100 · 250 · 500 · 800 · 1 200 · 1 700 · 2 400 · 3 200 · 4 200.
+
+**Séries :** calculées par habitude (en jours, ou en semaines pour l'hebdomadaire) en ignorant les jours inactifs ; la série du jour n'est pas cassée tant que la journée n'est pas terminée. La série la plus longue est également conservée.
+
+**Journée parfaite :** toutes les habitudes non optionnelles actives du jour sont validées → confettis, fanfare et bonus d'XP.
+
+### 5. 🏆 Succès
+
+18 succès, regroupés par catégorie sur la page **Succès** avec un compteur global de progression.
+
+| Catégorie | Succès |
+|---|---|
+| **Séries et régularité** | 🌅 Régularité (série ≥ 30 j) · 🎯 Dévouement (série ≥ 60 j) · 🐫 Chameau (eau 7 j de suite) · 🌊 Hydratation parfaite (eau 30 j) · 📖 Rat de bibliothèque (lecture 14 j) · 🌙 Hibou apprivoisé (sommeil 14 j) · 👑 Maîtrise de soi (aucune mauvaise habitude 14 j) · 👣 Sur la route (10 000 pas 7 j) · 🏅 Marathon (10 000 pas 30 j) |
+| **Étapes et XP** | 🌱 Premier pas · ⚔️ Centurion (100 XP) · 💎 Réserve d'XP (500 XP) · 🔥 En feu (niveau 5) · 🌌 Transcendance (niveau max) |
+| **Journées parfaites** | ⭐ Semaine parfaite (100 % sur une semaine complète) · 💯 Perfectionniste (5 journées parfaites) · 💪 Volonté de fer (20 séances de gym dans le mois) |
+
+Chaque déblocage déclenche une notification dans l'app et un son.
+
+### 6. 🧠 Humeur
+
+- **Saisie en deux étapes** : choix parmi 5 niveaux (😎 Super · 😊 Bien · 😐 Neutre · 😢 Bof · 😡 Mal), puis sélection d'un ou plusieurs **ressentis** adaptés au niveau choisi (Joie, Calme, Fatigue, Stress, Colère…).
+- **Invite quotidienne** : si l'humeur du jour n'est pas renseignée, la fenêtre s'ouvre automatiquement quelques secondes après le lancement (une fois par session).
+- **Saisie manuelle** depuis l'accueil ou le Rapport, et **rattrapage des jours passés** depuis le calendrier d'humeur.
+
+### 7. 🌬️ Respiration
+
+Écran plein format avec orbe animée, anneau de progression et compte à rebours. Trois exercices :
+
+| Exercice | Rythme | Usage |
 |---|---|---|
-| ⭐ | First Step | Compléter sa première habitude |
-| 🐪 | Camel | 7 jours d'affilée à l'objectif eau |
-| 🌟 | Perfect Week | 100 % de réussite sur une semaine entière |
-| 👑 | Self King | 0 mauvaise habitude déclenchée pendant 14 jours |
-| 🏅 | Centurion | Accumuler 100 XP |
-| 🔥 | On Fire | Atteindre le niveau 5 |
-| 📚 | Bookworm | Streak lecture de 14 jours |
-| 📵 | Digital Detox | 30 jours sans scroller |
-| 💪 | Iron Will | 20 séances de gym dans le mois |
-| ✅ | Consistent | N'importe quelle streak ≥ 30 jours |
+| **Carrée** | 4 – 4 – 4 – 4 s | Concentration |
+| **4-7-8** | 4 – 7 – 8 s | Sommeil |
+| **Calme** | 5 – 2 – 5 s | Détente |
 
-### 4. ⏱️ Minuteur Pomodoro (25 min)
+Les phases (Inspirez / Retenez / Expirez) sont annoncées à l'écran et les cycles terminés sont comptés. Changer d'exercice arrête la session en cours.
 
-Disponible sur toutes les habitudes de type `good`. Un anneau SVG animé affiche la progression en temps réel. À la fin du décompte, l'habitude se valide automatiquement avec un son de fanfare et l'XP est attribué.
+### 8. 🧘 Méditation
 
-### 5. 🛡️ Système de Jokers
+Écran de présentation « bientôt disponible » : les sessions guidées ne sont pas encore implémentées.
 
-Disponible sur les habitudes de type `good` disposant d'un quota mensuel (`jokerLimit`). Permet de justifier un manquement de la veille sans casser la série.
+### 9. 💤 Suivi du sommeil
 
-**Raisons disponibles :** 🤒 Malade · 💼 Trop de travail · 🎉 Soirée · 😴 Épuisé · ✈️ Voyage · ❓ Autre
+Fenêtre de saisie avec **durée** (heures/minutes), **heure de coucher** et **heure de réveil** (facultatives) et **date** modifiable. L'enregistrement valide automatiquement l'habitude Sommeil pour la date choisie et affiche un résumé de la nuit sur l'accueil.
 
-### 6. 🧠 Suivi de l'Humeur (Mood Tracker)
+### 10. 📈 Rapport
 
-Interrogation quotidienne sur la journée écoulée via 5 niveaux : 😫 Rough · 😕 · 😐 Neutral · 😊 · 🤩 Amazing. L'historique est visualisé avec un code couleur dégradé du rouge au vert.
+- **Cartes de synthèse** : meilleure série en cours, taux de réussite sur 30 jours, total d'habitudes validées, nombre de journées parfaites.
+- **Histogramme de la semaine** : habitudes validées par jour (Lun–Dim).
+- **Courbe d'évolution** : taux de réussite mensuel sur 6 mois.
+- **Calendrier du mois** : jours colorés selon la réussite (parfait · bon ≥ 70 % · manqué).
+- **Calendrier d'humeur** : navigation mois par mois.
+- **Courbe d'humeur** de la semaine.
 
-### 7. 📈 Visualisations & Analytics
+Les graphiques sont dessinés en Canvas, sans bibliothèque.
 
-- **Heatmap 16 semaines** — historique coloré par statut (✓ vert · 🃏 orange · ✗ rouge · — gris). Pour les bad habits avec durée, le tooltip au survol affiche la valeur enregistrée.
-- **Graphique radar** — taux de réussite des 30 derniers jours par habitude.
-- **Courbe de tendance** — taux de réussite global sur 30 jours.
-- **Bar chart par jour de semaine** — identifie vos journées fortes et faibles.
-- **Mini-graphiques par habitude** — performance individuelle sur 30 jours.
+### 11. 🗂️ Page Habitudes
 
-### 8. 👤 Profil & Préférences
+Liste de toutes les habitudes avec progression du jour, série en cours et validation rapide. Le bouton « + » (ajout d'habitude personnalisée) est présent mais renvoie pour l'instant un message « bientôt disponible ».
 
-Accessible via le bouton 👤 en haut à droite.
+### 12. 👤 Compte & préférences
+
+Accessibles depuis la page **Compte** et la fenêtre de profil (⋮).
 
 | Préférence | Description |
 |---|---|
-| **Nom d'affichage** | Personnalise le message de bienvenue |
-| **🔊 Sound effects** | Active / désactive tous les sons procéduraux |
-| **🧘 Zen mode** | Les habitudes complétées s'effacent visuellement de la liste — tableau épuré |
-| **💀 Hardcore mode** | −5 XP par bonne habitude ratée le lendemain sans Joker |
-| **🔔 Notifications** | Rappels horaires via Service Worker (voir ci-dessous) |
-| **🗑 Reset** | Efface irréversiblement toutes les données |
+| **Nom d'affichage** | Prénom ou pseudo affiché dans le profil |
+| **Mode sombre** | Bascule manuelle thème clair / sombre |
+| **Effets sonores** | Active ou coupe tous les sons |
+| **Mode zen** | Les habitudes terminées se replient dans l'onglet Aujourd'hui |
+| **Notifications** | Rappels quotidiens (voir ci-dessous) |
+| **Réinitialiser** | Efface définitivement toutes les données (confirmation demandée) |
 
-### 9. 🔔 Notifications Push (Service Worker)
+La page Compte affiche aussi le niveau, le titre et la barre d'XP jusqu'au niveau suivant.
 
-Lorsqu'activées dans les préférences, des rappels sont planifiés directement par le Service Worker (aucun serveur requis) :
+### 13. 🔔 Rappels
 
-| Habitude | Heure | Jours |
+Quatre rappels locaux, programmés à l'heure de l'appareil lorsque l'autorisation de notification est accordée :
+
+| Rappel | Heure | Jours |
 |---|---|---|
-| 💤 Bedtime | 21h00 | Lun-Ven |
-| 🫧 Clean | 8h00 | Tous |
-| 🫧 Clean | 20h45 | Tous |
-| 🚀 Projects | hidden | Tous |
-| 💼 Work | 8h30 | Lun–Ven |
-| 🏋️ Gym | 6h00 | Lun–Ven |
-| 🏃 Running | 17h30 | Lun–Ven |
-| 🧹 Cleaning | 18h00 | Dimanche |
-| 📵 Phone out of bed | 21h00 | Tous |
+| 💼 Mode travail | 08:30 | Lun–Ven |
+| 🏃 Heure de courir | 17:30 | Lun–Ven |
+| 💤 Extinction des feux | 21:00 | Lun–Ven |
+| 📵 Téléphone posé | 21:00 | Tous les jours |
 
-> Toutes les heures sont calculées dans le fuseau **Europe/Paris**, y compris les changements d'heure (DST).
+> Les rappels sont planifiés par l'application elle-même (minuteurs JavaScript) : ils ne se déclenchent que lorsque l'app est ouverte ou active en arrière-plan. Aucun serveur de push n'est utilisé. Le Service Worker gère le clic sur une notification (focus de l'app ou ouverture).
 
-### 10. 🔊 Conception Audio Procédurale
+### 14. 🔊 Sons procéduraux
 
-Aucun fichier `.mp3`. Tous les effets sonores sont générés en temps réel via l'**API Web Audio** :
+Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **Web Audio API**.
 
 | Son | Déclencheur |
 |---|---|
-| `done` | Validation d'une habitude |
-| `undo` | Annulation d'une action |
-| `fail` | Déclenchement d'une mauvaise habitude |
-| `drink` | Objectif eau atteint |
-| `fanfare` | Perfect Day |
-| `level_up` | Passage de niveau |
+| `done` | Habitude ou objectif validé, succès débloqué |
+| `undo` | Annulation d'une validation |
+| `fail` | Échec (habitude de type `bad`) |
+| `drink` | Objectif d'hydratation atteint |
+| `fanfare` | Journée parfaite |
+| `levelup` | Passage de niveau |
 
-### 11. 📱 PWA — Application Installable
+### 15. 📱 PWA
 
-HabitsTracker est une **Progressive Web App** complète :
-- Installable sur iOS (Safari) et Android (Chrome) via « Ajouter à l'écran d'accueil »
-- Fonctionne **hors-ligne** grâce au Service Worker (stratégie cache-first pour les assets statiques, network-first pour le HTML)
-- Icônes adaptatives (`any` + `maskable`) pour toutes les tailles d'écran
+- Installable sur iOS (Safari → « Sur l'écran d'accueil ») et Android/desktop (Chrome).
+- Mode `standalone`, orientation portrait, langue `fr`, prise en charge des zones sécurisées (encoche, barre d'accueil).
+- **Hors-ligne** via le Service Worker (`ht-v3.0.1`) :
+  - HTML : réseau d'abord, repli sur le cache ;
+  - fichiers locaux (CSS, JS, icônes, manifeste) : cache d'abord, précachés à l'installation ;
+  - Google Fonts : *stale-while-revalidate*.
+- Anciennes versions du cache supprimées automatiquement à l'activation.
+- Icônes `any` et `maskable`, icône Apple Touch.
 
-### 12. 💾 Stockage & Confidentialité
+### 16. 💾 Stockage & confidentialité
 
-Toutes les données (historique, profil, XP, séries, humeurs) sont stockées dans le `localStorage` sous la clé `ht_v2`. Aucune donnée ne quitte votre appareil.
+Toutes les données (historique, profil, XP, humeurs, ressentis, journal de sommeil, succès) sont stockées dans le `localStorage` sous la clé **`ht-v2.6`**. Aucune donnée ne quitte votre appareil, aucun compte n'est requis. Les données existantes sont migrées automatiquement avec des valeurs par défaut quand de nouveaux champs apparaissent.
+
+### 17. ♿ Accessibilité & confort
+
+Barres de progression avec rôle ARIA, libellés accessibles sur les boutons d'icône, zone live pour les phases de respiration, et respect de `prefers-reduced-motion`.
 
 ---
 
 ## 🎨 Direction artistique « Encre »
 
-- **Principe :** l'interface est en noir et blanc, la couleur appartient aux habitudes. Chaque habitude a son encre ; une carte validée se remplit entièrement de cette couleur.
-- **Bande d'encre :** en haut de l'accueil, un segment par habitude du jour se remplit au fil des validations.
-- **Typographies :** Bricolage Grotesque (titres et chiffres, version condensée) et Instrument Sans (texte).
-- **Navigation :** dock flottant, seul l'onglet actif affiche son libellé.
+- **Principe :** interface en noir et blanc, la couleur appartient aux habitudes. Chaque habitude a son encre ; une carte validée se remplit de cette couleur.
+- **Typographies :** Bricolage Grotesque (titres et chiffres) et Instrument Sans (texte), chargées depuis Google Fonts.
 - **Thèmes :** clair (papier gris froid) et sombre, mêmes encres dans les deux.
+- **Retours visuels :** confettis (Canvas) pour la journée parfaite, animations de validation, repli en mode zen.
 
 ---
 
-## 🛠️ Architecture Technique
+## 🛠️ Architecture technique
 
 ```
 habitstracker/
-├── index.html          # Structure sémantique + modales (Profile, Joker, Mood)
-├── style.css           # Design system « Encre » (thèmes clair / sombre via variables CSS)
-├── script.js           # Logique métier complète (stockage, XP, streaks, audio, DOM)
-├── sw.js               # Service Worker (cache, offline, notifications planifiées)
-├── manifest.json       # Manifeste PWA (icônes, couleurs, orientation)
-├── icon-192.png        # Icône PWA standard
-├── icon-512.png        # Icône PWA haute résolution
-├── icon-512-maskable.png  # Icône adaptive Android
-└── apple-touch-icon.png   # Icône iOS
+├── index.html          # Structure des pages, modales (humeur, profil, sommeil), overlays (respiration, méditation)
+├── style.css           # Design system « Encre » (variables CSS, thèmes clair / sombre)
+├── script.js           # Logique complète : données, XP, séries, succès, rendu, audio, notifications
+├── sw.js               # Service Worker (cache, hors-ligne, clic sur notification)
+├── manifest.json       # Manifeste PWA
+└── assets/
+    ├── icon-192.png
+    ├── icon-512.png
+    ├── icon-512-maskable.png
+    └── apple-touch-icon.png
 ```
 
-**Stack :** HTML · CSS · JavaScript Vanilla · Web Audio API · Canvas API · Service Worker API · Web Notifications API · Intl API (fuseau horaire Paris)
+**Stack :** HTML · CSS · JavaScript vanilla · Web Audio API · Canvas API · Service Worker API · Web Notifications API · localStorage.
 
-**Aucune dépendance externe** — pas de framework, pas de bundler, pas de serveur.
+**Aucun framework, aucun bundler, aucun serveur.** La seule ressource externe est la police Google Fonts (mise en cache par le Service Worker pour l'usage hors-ligne).
+
+---
+
+## 🧭 À venir
+
+- Ajout, modification et suppression d'habitudes personnalisées
+- Sessions de méditation guidée
