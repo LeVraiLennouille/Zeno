@@ -26,7 +26,7 @@ Neuf habitudes sont proposées par défaut. Chacune a sa couleur (« encre ») e
 
 ### 1. 🧭 Navigation
 
-Un dock flottant en bas de l'écran donne accès à cinq pages : **Accueil**, **Succès**, **Rapport**, **Habitudes** et **Compte**. Seul l'onglet actif affiche son libellé. Le bouton ⋮ de l'accueil ouvre la fenêtre de profil.
+Un dock flottant en bas de l'écran donne accès à cinq pages : **Accueil**, **Succès** (deux onglets : *Défis & saison* et *Succès*), **Rapport**, **Habitudes** et **Compte**. Seul l'onglet actif affiche son libellé. Le bouton ⋮ de l'accueil ouvre la fenêtre de profil.
 
 ### 2. 🏠 Accueil
 
@@ -65,7 +65,7 @@ Les habitudes limitées aux jours ouvrés (`weekdayOnly`) ou à des jours préci
 | Séance de méditation terminée (une fois par jour) | +10 |
 | Journée parfaite (bonus, une fois par jour) | +50 |
 
-**10 niveaux :** Novice → Apprenti → Pratiquant → Fervent → Discipliné → Concentré → Maître → Grand maître → Légende → Transcendant.
+**10 niveaux** (puis la [saison](#20--défis-et-saisons) prend le relais) : Novice → Apprenti → Pratiquant → Fervent → Discipliné → Concentré → Maître → Grand maître → Légende → Transcendant.
 **Seuils d'XP :** 0 · 100 · 250 · 500 · 800 · 1 200 · 1 700 · 2 400 · 3 200 · 4 200.
 
 **Séries :** calculées par habitude (en jours, ou en semaines pour l'hebdomadaire) en ignorant les jours inactifs ; la série du jour n'est pas cassée tant que la journée n'est pas terminée. La série la plus longue est également conservée. Un **jour de pause** gèle les séries (il est ignoré comme un jour inactif).
@@ -74,7 +74,7 @@ Les habitudes limitées aux jours ouvrés (`weekdayOnly`) ou à des jours préci
 
 ### 5. 🏆 Succès
 
-20 succès, regroupés par catégorie sur la page **Succès** avec un compteur global de progression.
+24 succès, regroupés par catégorie dans l'onglet **Succès** avec un compteur global de progression.
 
 | Catégorie | Succès |
 |---|---|
@@ -82,6 +82,7 @@ Les habitudes limitées aux jours ouvrés (`weekdayOnly`) ou à des jours préci
 | **Étapes et XP** | 🌱 Premier pas · ⚔️ Centurion (100 XP) · 💎 Réserve d'XP (500 XP) · 🔥 En feu (niveau 5) · 🌌 Transcendance (niveau max) |
 | **Journées parfaites** | ⭐ Semaine parfaite (100 % sur une semaine complète) · 💯 Perfectionniste (5 journées parfaites) · 💪 Volonté de fer (20 séances de gym dans le mois) |
 | **Bien-être** | 🧘 Esprit calme (5 min de méditation en une journée) · 🪷 Pleine conscience (7 jours différents de méditation) |
+| **Défis et saisons** | 🎯 Défi relevé · 🏹 Chasseur de défis (5 défis) · 🏔️ Trente jours (défi ≥ 30 j) · 🌟 Rang V (saison) · 🏆 Sommet de saison (rang maximal) |
 
 Chaque déblocage déclenche une notification dans l'app et un son.
 
@@ -90,6 +91,9 @@ Chaque déblocage déclenche une notification dans l'app et un son.
 - **Saisie en deux étapes** : choix parmi 5 niveaux (😎 Super · 😊 Bien · 😐 Neutre · 😢 Bof · 😡 Mal), puis sélection d'un ou plusieurs **ressentis** adaptés au niveau choisi (Joie, Calme, Fatigue, Stress, Colère…).
 - **Invite quotidienne** : si l'humeur du jour n'est pas renseignée, la fenêtre s'ouvre automatiquement quelques secondes après le lancement (une fois par session).
 - **Saisie manuelle** depuis l'accueil ou le Rapport, et **rattrapage des jours passés** depuis le calendrier d'humeur.
+- **Journal du jour** : à la seconde étape, un champ libre (600 caractères, compteur en direct) permet d'attacher une **note** à l'humeur. Un jour avec note porte une petite pastille dans le calendrier d'humeur.
+- **Modification** : toucher un jour du calendrier d'humeur rouvre la saisie pré-remplie (humeur, ressentis, note). Valider une note vide la supprime ; l'humeur est conservée.
+- **Relecture** : la carte **Journal** du Rapport liste les notes (la plus récente d'abord : 5 notes, puis « Voir plus » par dizaines), avec ressentis, recherche plein texte (à partir de 3 notes), modification ✏️ et suppression 🗑. Les retours à la ligne sont conservés et le texte est toujours échappé.
 
 ### 7. 🌬️ Respiration
 
@@ -135,6 +139,7 @@ Tout le rapport suit trois commandes en haut de page :
 | **Calendrier du mois** | Parfait · bon (≥ 70 %) · manqué ; les **jours de pause** sont hachurés et exclus des calculs |
 | **Calendrier d'humeur** | Navigation mois par mois et saisie rétroactive |
 | **Courbe d'humeur** | Journalière (semaine, mois) ou moyenne mensuelle (année) |
+| **Journal** | Notes attachées à l'humeur, avec recherche (voir [Humeur](#6--humeur)) |
 | **Insights** | Voir [Insights croisés](#19--insights-croisés) |
 
 Avec un filtre sur une habitude de type compteur, la réussite est proportionnelle à l'objectif (ex. 6 000 pas sur 10 000 = 60 %). Les graphiques sont dessinés en Canvas, sans bibliothèque, et suivent le thème clair/sombre.
@@ -226,8 +231,9 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 ### 15. 📱 PWA
 
 - Installable sur iOS (Safari → « Sur l'écran d'accueil ») et Android/desktop (Chrome).
+- **Raccourcis d'icône** (appui long) : voir [Raccourcis PWA](#21--raccourcis-pwa).
 - Mode `standalone`, orientation portrait, langue `fr`, prise en charge des zones sécurisées (encoche, barre d'accueil).
-- **Hors-ligne** via le Service Worker (`ht-v3.1.1`) :
+- **Hors-ligne** via le Service Worker (`ht-v3.1.3`) :
   - HTML : réseau d'abord, repli sur le cache ;
   - fichiers locaux (CSS, JS, icônes, manifeste) : cache d'abord, précachés à l'installation ;
   - Google Fonts : *stale-while-revalidate*.
@@ -236,7 +242,7 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 
 ### 16. 💾 Stockage & confidentialité
 
-Toutes les données (historique, définitions des habitudes, rappels, profil, XP, humeurs, ressentis, journal de sommeil, jours de pause, minutes de méditation, succès) sont stockées dans le `localStorage` sous la clé **`ht-v2.6`**. Aucune donnée ne quitte votre appareil, aucun compte n'est requis. Les données existantes sont migrées automatiquement : à la première ouverture, les habitudes et rappels par défaut sont copiés dans les données, sans toucher à l'historique.
+Toutes les données (historique, définitions des habitudes, rappels, profil, XP, humeurs, ressentis, journal de sommeil, jours de pause, minutes de méditation, notes du journal, défis, XP de saison, succès) sont stockées dans le `localStorage` sous la clé **`ht-v2.6`**. Aucune donnée ne quitte votre appareil, aucun compte n'est requis. Les données existantes sont migrées automatiquement : à la première ouverture, les habitudes et rappels par défaut sont copiés dans les données, sans toucher à l'historique.
 
 ### 17. ♿ Accessibilité & confort
 
@@ -265,6 +271,45 @@ Une carte en bas du Rapport met en relation **humeur**, **sommeil**, **habitudes
 - **Meilleur et pire jour de la semaine** pour l'humeur.
 
 Chaque ligne affiche l'écart (`+1,2` en vert, `−0,8` en rouge, ou `+15 pts`) et le nombre de jours sur lequel elle repose. Pour éviter les faux signaux : au moins **7 jours d'humeur** renseignés pour démarrer, au moins **5 jours dans chaque groupe** comparé, un écart minimal (0,3 point d'humeur, 8 points de pourcentage) et **6 insights maximum**, triés par importance. Pour chaque habitude, les jours où elle est inactive (jours de pause compris) sont écartés de la comparaison. Ce sont des corrélations, pas des causes : un rappel est affiché sous la carte.
+
+### 20. 🏆 Défis et saisons
+
+Pour relancer la motivation une fois les 10 niveaux atteints. Tout est dans l'onglet **Défis & saison** de la page Succès.
+
+**Saisons.** Quatre saisons par an, qui suivent le calendrier météorologique : ❄️ Hiver (déc.–fév.), 🌸 Printemps (mars–mai), ☀️ Été (juin–août), 🍂 Automne (sept.–nov.).
+
+- Chaque XP gagné (habitudes, défis, méditation, journées parfaites…) alimente aussi l'**XP de la saison en cours**, qui repart de zéro à chaque saison.
+- **12 rangs**, de I *Éveil* à XII *Éternité* (seuils : 0 · 300 · 700 · 1 200 · 1 800 · 2 500 · 3 300 · 4 200 · 5 200 · 6 300 · 7 500 · 9 000 XP). Un changement de rang déclenche une annonce et un son.
+- La carte de saison affiche le rang, la progression vers le suivant, les jours restants et les **saisons passées** avec leur rang final. Le rang courant est aussi rappelé sous la barre d'XP de la page Compte.
+
+**Défis.** Des objectifs temporaires sur une habitude, jusqu'à **5 en parallèle** (un seul par habitude).
+
+| Réglage | Détail |
+|---|---|
+| **Habitude** | N'importe quelle habitude sauf les hebdomadaires |
+| **Durée** | 7, 14, 21, 30, 60 ou 90 jours, ou une valeur libre de 3 à 365, à partir d'aujourd'hui |
+| **Objectif** | *Chaque jour* (tous les jours actifs) ou *Au moins K jours* sur la durée ; pour une habitude **à éviter**, « aucun écart » |
+| **Titre** | Généré (« 30 jours sans Scroll », « Gym · 12 fois en 30 jours ») et modifiable |
+| **Récompense** | `10 + 3 × jours requis` XP, versés aussi à la saison |
+
+- **Victoire :** dès que le nombre de jours requis est atteint (« Au moins K jours » peut donc se gagner avant la fin). Pour une habitude à éviter, un jour « propre » ne compte qu'une fois la journée terminée : « 30 jours sans X » se gagne le lendemain du dernier jour.
+- **Échec :** dès que l'objectif devient mathématiquement impossible (un écart sur un défi « sans », un jour raté sur un défi « chaque jour »…). Aucune pénalité d'XP.
+- **Pauses et jours inactifs** sont exclus : ils réduisent le nombre de jours requis au lieu de pénaliser.
+- Le défi est réévalué à chaque affichage et au retour de l'app au premier plan, puis annoncé (toast, fanfare, confettis). Si l'habitude liée est supprimée, le défi est abandonné.
+- Un **historique** conserve les 8 derniers défis terminés (relevé ✓, manqué ✗, abandonné –), effaçable.
+
+### 21. 🔗 Raccourcis PWA
+
+Sur Android (appui long sur l'icône) et sur les navigateurs desktop qui l'acceptent (clic droit sur l'icône de l'app installée), l'app propose quatre raccourcis déclarés dans `manifest.json` :
+
+| Raccourci | Action |
+|---|---|
+| **Noter mon humeur** | Ouvre la saisie d'humeur (et sa note) pour aujourd'hui |
+| **Respiration** | Ouvre l'écran de respiration |
+| **+250 ml d'eau** | Ajoute 250 ml à l'objectif du jour et affiche le total (objectif et plafond respectés) |
+| **Méditation** | Ouvre le minuteur de méditation |
+
+Chaque raccourci ouvre `index.html?action=…` ; l'action est exécutée une seule fois et l'URL est aussitôt nettoyée, donc un rechargement ne la rejoue pas. Une action inconnue est ignorée. iOS n'implémente pas les raccourcis d'icône.
 
 ## 🎨 Direction artistique « Encre »
 

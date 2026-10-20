@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ht-v3.1.2';
+const CACHE_VERSION = 'ht-v3.1.3';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -73,7 +73,7 @@ async function networkFirstHTML(req) {
     if (res.ok) (await caches.open(STATIC_CACHE)).put(req, res.clone());
     return res;
   } catch {
-    return (await caches.match(req)) || caches.match('./index.html');
+    return (await caches.match(req, { ignoreSearch: true })) || caches.match('./index.html');
   }
 }
 
