@@ -93,6 +93,7 @@ const today     = () => fmtDate(new Date());
 const isWeekend = d => { const dow=d.getDay(); return dow===0||dow===6; };
 const isDayActive = (habit, dateObj) => {
   if (habit.since && fmtDate(dateObj) < habit.since) return false;
+  if (isPaused(fmtDate(dateObj))) return false;
   if (habit.activeDays) return habit.activeDays.includes(dateObj.getDay());
   if (habit.weekdayOnly) return !isWeekend(dateObj);
   return true;
@@ -148,18 +149,52 @@ if(!DB.moods) DB.moods={};
 if(!DB.perfectDaysClaimed) DB.perfectDaysClaimed=[];
 if(!DB.penaltiesApplied) DB.penaltiesApplied=[];
 if(DB.profile.notifsEnabled===undefined) DB.profile.notifsEnabled=false;
+if(DB.profile.themeMode===undefined) DB.profile.themeMode = DB.profile.darkMode===undefined ? 'system' : (DB.profile.darkMode===true ? 'dark' : 'light');
 if(DB.profile.darkMode===undefined) DB.profile.darkMode=false;
+if(!DB.pauses) DB.pauses={};
+if(!DB.meditation) DB.meditation={};
 if(!DB.profile.moodFeelings) DB.profile.moodFeelings={};
 
-function initTheme() {
-  const dark = DB.profile.darkMode===true;
-  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
-  const btn=document.getElementById('themeToggle');
-  if(btn){ btn.textContent=dark?'Activé':'Désactivé'; btn.className=`pref-toggle ${dark?'on':'off'}`; }
+/* ═══════════ Thème : clair / sombre / automatique ═══════════ */
+const _mqDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+const THEME_MODES = [['light','Clair'],['system','Auto'],['dark','Sombre']];
+
+function isDarkNow() {
+  const m = DB.profile.themeMode;
+  if (m === 'dark') return true;
+  if (m === 'light') return false;
+  return !!(_mqDark && _mqDark.matches);
 }
-function toggleTheme() {
-  DB.profile.darkMode = !DB.profile.darkMode;
+function themeSegHtml() {
+  const m = DB.profile.themeMode || 'light';
+  return THEME_MODES.map(([k, l]) =>
+    `<button type="button" class="theme-seg-btn${m === k ? ' active' : ''}" aria-pressed="${m === k}" onclick="setThemeMode('${k}')">${l}</button>`).join('');
+}
+function renderThemeSegs() {
+  document.querySelectorAll('.theme-seg').forEach(el => { el.innerHTML = themeSegHtml(); });
+}
+function initTheme() {
+  const dark = isDarkNow();
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#0E0F13' : '#EDEEF0');
+  renderThemeSegs();
+}
+function setThemeMode(m) {
+  DB.profile.themeMode = m;
+  DB.profile.darkMode = (m === 'dark');
   saveData(); initTheme();
+  if (activePage === 'report') renderActivePage();
+}
+function toggleTheme() { setThemeMode(isDarkNow() ? 'light' : 'dark'); }
+if (_mqDark) {
+  const onSystemTheme = () => {
+    if (DB.profile.themeMode !== 'system') return;
+    initTheme();
+    if (activePage === 'report') renderActivePage();
+  };
+  if (_mqDark.addEventListener) _mqDark.addEventListener('change', onSystemTheme);
+  else if (_mqDark.addListener) _mqDark.addListener(onSystemTheme);
 }
 initTheme();
 
@@ -214,7 +249,7 @@ function loseXP(amount) { DB.xp=Math.max(0,(DB.xp||0)-amount); saveData(); }
 function calcWeeklyStreak(habit) {
   const cwm=getWeekMonday(new Date()); const cur=isWeeklyDoneForWeek(habit.id,cwm);
   const start=cur?0:1; let streak=0;
-  for(let o=start;o<104;o++){ const wm=fmtDate(addDays(parseDate(cwm),-o*7)); if(wm<DB.createdAt) break; if(!isWeeklyDoneForWeek(habit.id,wm)) break; streak++; }
+  for(let o=start;o<104;o++){ const wm=fmtDate(addDays(parseDate(cwm),-o*7)); if(wm<DB.createdAt) break; if(!isWeeklyDoneForWeek(habit.id,wm)){ if(weekPausedCount(wm)>=3) continue; break; } streak++; }
   return streak;
 }
 function calcStreak(habit) {
@@ -223,7 +258,9 @@ function calcStreak(habit) {
   if(habit.type==='bad') {
     let streak=0; let d=new Date();
     for(let i=0;i<730;i++){ const k=fmtDate(d); if(k<createdAt) break; if(!isDayActive(habit,d)){d=addDays(d,-1);continue;} if(isBadFail(habit.id,k)) break; if(k<=todayKey) streak++; d=addDays(d,-1); }
-    return {current:streak,longest:streak};
+    let best=0,run=0; let dd=new Date(parseDate(createdAt));
+    while(fmtDate(dd)<=todayKey){ const k=fmtDate(dd); if(isDayActive(habit,dd)){ if(isBadFail(habit.id,k)) run=0; else { run++; best=Math.max(best,run); } } dd=addDays(dd,1); }
+    return {current:streak,longest:Math.max(streak,best)};
   }
   const logDone=k=>{ if(habit.type==='drink') return isDrinkDone(k); if(habit.type==='counter') return isCounterDone(habit,k); return logs[k]==='done'; };
   const todayDone=logDone(todayKey); const todayObj=new Date(); const todayInactive=!isDayActive(habit,todayObj); const todayEffDone=todayDone||todayInactive;
@@ -259,6 +296,8 @@ const ACHIEVEMENTS = [
   { id:'transcend',   emoji:'🌌', name:"Transcendance",     desc:"Atteins le niveau maximal",                check:()=>calcLevel(DB.xp)>=LEVEL_THRESHOLDS.length },
   { id:'walker',      emoji:'👣', name:"Sur la route",           desc:"10 000 pas par jour pendant 7 jours",         check:()=>{const h=HABITS.find(x=>x.id==='setp');return h&&calcStreak(h).current>=7;} },
   { id:'marathoner',  emoji:'🏅', name:"Marathon",       desc:"10 000 pas par jour pendant 30 jours",        check:()=>{const h=HABITS.find(x=>x.id==='setp');return h&&calcStreak(h).current>=30;} },
+  { id:'calm_mind',   emoji:'🧘', name:"Esprit calme",       desc:"Médite pendant au moins 5 minutes",            check:()=>Object.values(DB.meditation||{}).some(m=>m>=5) },
+  { id:'mindful_wk',  emoji:'🪷', name:"Pleine conscience",  desc:"Médite pendant 7 jours différents",            check:()=>Object.values(DB.meditation||{}).filter(m=>m>=1).length>=7 },
 ];
 
 function checkPerfectWeek() {
@@ -305,7 +344,7 @@ function toggleHabit(id) {
     saveData(); checkAchievements(); afterToggle(id); return;
   }
   if(habit.type==='bad') {
-    if(DB.habits[id].logs[t]==='fail'){delete DB.habits[id].logs[t];playSound('undo');}
+    if(DB.habits[id].logs[t]==='fail'){delete DB.habits[id].logs[t];clearBadVal(id,t);playSound('undo');}
     else{DB.habits[id].logs[t]='fail';playSound('fail');}
   } else {
     const completing=DB.habits[id].logs[t]!=='done';
@@ -413,6 +452,7 @@ function renderHome() {
   if(activeHomeTab==='weekly')  renderWeeklyTab();
   if(activeHomeTab==='overall') renderOverallTab();
   renderHero();
+  renderPauseBanner();
   const w=document.getElementById('home-wellness'); if(w) w.classList.toggle('hidden',activeHomeTab!=='today');
   renderSleepSummary();
 }
@@ -431,7 +471,7 @@ function renderHero() {
     <div class="hero-score">
       <div class="hero-count${perfect?' perfect':''}" role="img" aria-label="${done.length} habitudes sur ${active.length}">${done.length}<small>/${active.length}</small></div>
       <div class="hero-side">
-        <div class="hero-caption">${perfect?'Journée parfaite':'habitudes faites'}</div>
+        <div class="hero-caption">${isPaused(t)?'Jour de pause · séries gelées':(perfect?'Journée parfaite':'habitudes faites')}</div>
         <div class="hero-level">Niv. ${level} · ${LEVEL_NAMES[level-1]||'Novice'}</div>
       </div>
     </div>
@@ -442,11 +482,11 @@ function renderTodayTab() {
   const container=document.getElementById('todayHabits'); if(!container) return;
   const t=today(); const todayDate=new Date(); todayDate.setHours(0,0,0,0);
   container.innerHTML='';
-  if(!HABITS.some(h=>isDayActive(h,todayDate))) container.innerHTML=todayEmptyNote();
+  if(!HABITS.some(h=>isDayActive(h,todayDate))) container.innerHTML=isPaused(t)?pausedDayNote():todayEmptyNote();
   HABITS.forEach(habit=>{
     if(!isDayActive(habit,todayDate)) return;
     const card=document.createElement('div');
-    const isSimple=['good','bad','weekly'].includes(habit.type);
+    const isSimple=['good','weekly'].includes(habit.type)||(habit.type==='bad'&&!habit.levels);
     const cardDone = habit.type!=='bad' && isHabitDoneOn(habit,t,todayDate);
     card.className='habit-card today-card'+(cardDone?' done':''); card.dataset.habitId=habit.id; card.style.setProperty('--ink',habit.color);
     const control=buildTodayControl(habit,t,todayDate);
@@ -481,7 +521,8 @@ function buildTodaySubLabel(habit,t,todayDate) {
   const streak=calcStreak(habit).current;
   if(habit.type==='bad') {
     const fail=isBadFail(habit.id,t);
-    return `${fail?'Craqué':'Tenu bon'} · ${icon('flame')} ${streak} j`;
+    const bv=fail?badVal(habit.id,t):'';
+    return `${fail?('Craqué'+(bv?' · '+esc(bv):'')):'Tenu bon'} · ${icon('flame')} ${streak} j`;
   }
   return streak>0?`${icon('flame')} ${streak} jour${streak>1?'s':''} de suite`:(habit.freq||'Tous les jours');
 }
@@ -506,6 +547,7 @@ function buildTodayControl(habit,t,todayDate) {
       <div class="step-btns">${minus}${adds}</div>
     </div>`;
   }
+  if(habit.type==='bad'&&habit.levels) return buildBadLevels(habit,t);
   if(habit.type==='bad') {
     const fail=isBadFail(habit.id,t);
     return `<button class="habit-toggle-btn${fail?' done fail':''}"
@@ -541,7 +583,7 @@ function renderWeeklyTab() {
       const isFuture=dateObj>todayDate;
       daysHtml+=`<div class="week-day-cell">
         <div class="week-day-label${isToday?' today-label':isSun?' sunday-label':''}">${dayLbl}</div>
-        <div class="week-day-dot${done?' done':''}${!active?' inactive':''}" 
+        <div class="week-day-dot${done?' done':''}${!active?' inactive':''}${isPaused(k)?' paused':''}" 
           style="${done?`background:${habit.color};border-color:${habit.color}`:active?`border-color:${habit.color+'50'}`:'border-color:var(--border)'}"
           ${!isFuture&&active?`onclick="toggleHabitOnDate('${habit.id}','${k}',this)"`:''}>
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"><polyline points="4 10 8 14 16 6"/></svg>
@@ -568,7 +610,7 @@ function renderWeeklyTab() {
 function toggleHabitOnDate(id, dateKey, dotEl) {
   const habit=HABITS.find(h=>h.id===id);
   if(habit.type==='bad') {
-    if(DB.habits[id].logs[dateKey]==='fail') delete DB.habits[id].logs[dateKey];
+    if(DB.habits[id].logs[dateKey]==='fail'){ delete DB.habits[id].logs[dateKey]; clearBadVal(id,dateKey); }
     else DB.habits[id].logs[dateKey]='fail';
   } else if(habit.type==='counter'||habit.type==='drink') {
     const goal=habit.type==='drink'?drinkCfg().goal:habit.goal;
@@ -608,10 +650,12 @@ function renderOverallTab() {
         const active=isDayActive(habit,dateObj);
         let cls='overall-dot';
         let style='';
-        if(!active||isFuture) { cls+=' inactive'; }
+        let tip=k;
+        if(!active||isFuture) { cls+=' inactive'+(isPaused(k)?' paused':''); if(isPaused(k)) tip+=' · pause'; }
+        else if(habit.type==='bad'&&isBadFail(habit.id,k)) { cls+=' failed'; const bv=badVal(habit.id,k); tip+=' · craqué'+(bv?` (${bv})`:''); }
         else if(isHabitDoneOn(habit,k,dateObj)) { cls+=' done'; style=`background:${habit.color}`; }
         else if(k>=DB.createdAt) { cls+=' missed'; style=`background:${habit.color}20;border:1.5px solid ${habit.color}40`; }
-        gridHtml+=`<div class="${cls}" style="${style}" title="${k}"></div>`;
+        gridHtml+=`<div class="${cls}" style="${style}" title="${esc(tip)}"></div>`;
       }
     });
     card.innerHTML=`
@@ -786,77 +830,212 @@ function buildMoodCalHtml() {
   <div class="mood-cal-grid">${headers}${cells}</div>`;
 }
 
+/* ═══════════ Rapport interactif ═══════════ */
+const rep = { period: 'week', offset: 0, habit: 'all' };
+const REP_PERIODS = [['week', 'Semaine'], ['month', 'Mois'], ['year', 'Année']];
+const midnight = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const fmtShort = d => `${d.getDate()} ${MONTH_SHORT[d.getMonth()].toLowerCase()}`;
+
+function setRepPeriod(p) { rep.period = p; rep.offset = 0; renderReport(); }
+function cycleRepPeriod() { const i = REP_PERIODS.findIndex(x => x[0] === rep.period); setRepPeriod(REP_PERIODS[(i + 1) % REP_PERIODS.length][0]); }
+function setRepHabit(id) { rep.habit = id; renderReport(); }
+function repNav(delta) { const n = rep.offset + delta; if (n > 0) return; rep.offset = n; renderReport(); }
+
+function repRange() {
+  const t = midnight();
+  if (rep.period === 'week') {
+    const dow = t.getDay() === 0 ? 6 : t.getDay() - 1;
+    const start = addDays(t, -dow + rep.offset * 7), end = addDays(start, 6);
+    return { start, end, t, label: `${fmtShort(start)} – ${fmtShort(end)}` };
+  }
+  if (rep.period === 'month') {
+    const start = new Date(t.getFullYear(), t.getMonth() + rep.offset, 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    return { start, end, t, label: `${MONTH_NAMES[start.getMonth()]} ${start.getFullYear()}` };
+  }
+  const y = t.getFullYear() + rep.offset;
+  return { start: new Date(y, 0, 1), end: new Date(y, 11, 31), t, label: String(y) };
+}
+function repHabits() { return rep.habit === 'all' ? HABITS : HABITS.filter(h => h.id === rep.habit); }
+
+// Statistiques d'une journée selon le filtre courant (null si rien à mesurer).
+function dayStat(d, includeOptional) {
+  const k = fmtDate(d);
+  if (d > midnight() || k < DB.createdAt) return null;
+  let req = 0, done = 0, cnt = 0;
+  repHabits().forEach(h => {
+    if (rep.habit === 'all' && h.optional && !includeOptional) return;
+    if (!isDayActive(h, d)) return;
+    const v = getHabitDayValue(h, k, d);
+    req++; if (v >= 1) cnt++;
+    done += rep.habit === 'all' ? (v >= 1 ? 1 : 0) : Math.min(1, v);
+  });
+  return req > 0 ? { k, req, done, cnt, rate: done / req } : null;
+}
+
+function repStats() {
+  const { start, end, t } = repRange();
+  let req = 0, done = 0, validated = 0, perfect = 0;
+  for (let d = new Date(start); d <= end && d <= t; d = addDays(d, 1)) {
+    const s = dayStat(d); const k = fmtDate(d);
+    if (s) { req += s.req; done += s.done; if (s.rate >= 1) perfect++; }
+    repHabits().forEach(h => {
+      if (h.type === 'bad' || !isDayActive(h, d) || k < DB.createdAt) return;
+      if (h.type === 'weekly') { if (DB.habits[h.id].logs[k] === 'done') validated++; }
+      else if (isHabitDoneOn(h, k, d)) validated++;
+    });
+  }
+  const streak = rep.habit === 'all'
+    ? HABITS.reduce((m, h) => Math.max(m, calcStreak(h).current), 0)
+    : calcStreak(HABITS.find(h => h.id === rep.habit)).current;
+  const perfectDays = rep.habit === 'all'
+    ? (DB.perfectDaysClaimed || []).filter(k => k >= fmtDate(start) && k <= fmtDate(end)).length
+    : perfect;
+  return { streak, rate: req > 0 ? Math.round(done / req * 100) : 0, validated, perfectDays };
+}
+
+// Points pour le graphique en barres et la courbe de réussite.
+function repBuckets() {
+  const { start, end, t } = repRange();
+  if (rep.period === 'year') {
+    return Array.from({ length: 12 }, (_, m) => {
+      let req = 0, done = 0, cnt = 0;
+      const last = new Date(start.getFullYear(), m + 1, 0).getDate();
+      for (let day = 1; day <= last; day++) {
+        const s = dayStat(new Date(start.getFullYear(), m, day), true);
+        if (s) { req += s.req; done += s.done; cnt += s.cnt; }
+      }
+      const cur = start.getFullYear() === t.getFullYear() && m === t.getMonth();
+      return { label: MONTH_SHORT[m].slice(0, 3), barLabel: MONTH_SHORT[m][0], showLabel: true, rate: req > 0 ? done / req : null, cnt, req, isToday: cur };
+    });
+  }
+  const out = []; let i = 0;
+  for (let d = new Date(start); d <= end; d = addDays(d, 1), i++) {
+    const s = dayStat(d, true);
+    const isToday = fmtDate(d) === fmtDate(t);
+    const label = rep.period === 'week' ? DAY_SHORT[i] : String(d.getDate());
+    out.push({ label, barLabel: label, showLabel: rep.period === 'week' || d.getDate() === 1 || d.getDate() % 5 === 0,
+      rate: s ? s.rate : null, cnt: s ? s.cnt : 0, req: s ? s.req : 0, isToday, future: d > t });
+  }
+  return out;
+}
+function repMoodPoints() {
+  const { start, end, t } = repRange();
+  if (rep.period === 'year') {
+    return Array.from({ length: 12 }, (_, m) => {
+      const vals = [];
+      const last = new Date(start.getFullYear(), m + 1, 0).getDate();
+      for (let day = 1; day <= last; day++) { const v = DB.moods[fmtDate(new Date(start.getFullYear(), m, day))]; if (v) vals.push(v); }
+      return { label: MONTH_SHORT[m].slice(0, 3), showLabel: true, v: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null, emoji: false };
+    });
+  }
+  const out = []; let i = 0;
+  for (let d = new Date(start); d <= end; d = addDays(d, 1), i++) {
+    const v = DB.moods[fmtDate(d)];
+    out.push({ label: rep.period === 'week' ? DAY_SHORT[i][0] : String(d.getDate()),
+      showLabel: rep.period === 'week' || d.getDate() === 1 || d.getDate() % 5 === 0,
+      v: (v && d <= t) ? v : null, emoji: rep.period === 'week' });
+  }
+  return out;
+}
+
+function buildCalStats() {
+  const { end, t } = repRange();
+  const anchor = end > t ? t : end;
+  const year = anchor.getFullYear(), month = anchor.getMonth();
+  const first = new Date(year, month, 1), last = new Date(year, month + 1, 0);
+  const startDow = first.getDay() === 0 ? 6 : first.getDay() - 1;
+  const todayKey = today(); let html = '';
+  for (let i = 0; i < startDow; i++) html += `<div></div>`;
+  for (let d = 1; d <= last.getDate(); d++) {
+    const dateObj = new Date(year, month, d); const k = fmtDate(dateObj);
+    if (k > todayKey) { html += `<div class="cal-stats-cell future">${d}</div>`; continue; }
+    if (isPaused(k)) { html += `<div class="cal-stats-cell paused" title="Pause">${d}</div>`; continue; }
+    if (k < DB.createdAt) { html += `<div class="cal-stats-cell">${d}</div>`; continue; }
+    const s = dayStat(dateObj);
+    let cls = 'cal-stats-cell'; let title = '';
+    if (s) { title = ` title="${s.cnt}/${s.req}"`; cls += s.rate >= 1 ? ' perfect' : s.rate >= 0.7 ? ' good' : ' missed'; }
+    html += `<div class="${cls}"${title}>${d}</div>`;
+  }
+  return { html, label: `${MONTH_NAMES[month]} ${year}` };
+}
+
+const CARET = `<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="2 4 5 7 8 4"/></svg>`;
+const NAV_L = `<svg viewBox="0 0 18 18"><polyline points="12 4 6 9 12 14"/></svg>`;
+const NAV_R = `<svg viewBox="0 0 18 18"><polyline points="6 4 12 9 6 14"/></svg>`;
+
 function renderReport() {
-  const container=document.getElementById('reportContent'); if(!container) return;
+  const container = document.getElementById('reportContent'); if (!container) return;
+  if (rep.habit !== 'all' && !HABITS.some(h => h.id === rep.habit)) rep.habit = 'all';
+  const R = repRange(), st = repStats(), buckets = repBuckets(), cal = buildCalStats();
+  const periodName = REP_PERIODS.find(p => p[0] === rep.period)[1];
+  const single = rep.habit !== 'all';
+  const dense = buckets.length > 12;
+  const badge = `<button type="button" class="report-period-badge" onclick="cycleRepPeriod()" aria-label="Changer de période (actuelle : ${periodName})">${periodName} ${CARET}</button>`;
+  const habitOpts = `<option value="all">Toutes les habitudes</option>` +
+    HABITS.map(h => `<option value="${h.id}"${rep.habit === h.id ? ' selected' : ''}>${esc(h.name)}</option>`).join('');
 
-  const maxStreak=HABITS.reduce((m,h)=>Math.max(m,calcStreak(h).current),0);
-  const last30=getLast30Completion();
-  const completionRate=Math.round(last30*100);
-  const totalCompleted=Object.values(DB.habits).reduce((s,h)=>s+Object.values(h.logs).filter(v=>v==='done').length,0);
-  const perfectDays=(DB.perfectDaysClaimed||[]).length;
+  const linePts = buckets.map(b => ({ label: b.label, showLabel: b.showLabel, v: b.rate == null ? null : Math.round(b.rate * 100) }));
+  const moodPts = repMoodPoints();
 
-  const barData=buildBarData();
-  const calHtml=buildCalStats();
-
-  container.innerHTML=`
+  container.innerHTML = `
     <div class="report-wrap">
+      <div class="rep-controls">
+        <div class="rep-seg" role="group" aria-label="Période">
+          ${REP_PERIODS.map(([k, l]) => `<button type="button" class="rep-seg-btn${rep.period === k ? ' active' : ''}" aria-pressed="${rep.period === k}" onclick="setRepPeriod('${k}')">${l}</button>`).join('')}
+        </div>
+        <div class="rep-row">
+          <div class="rep-nav">
+            <button type="button" class="mood-cal-nav-btn" onclick="repNav(-1)" aria-label="Période précédente">${NAV_L}</button>
+            <div class="rep-range" aria-live="polite">${R.label}</div>
+            <button type="button" class="mood-cal-nav-btn" onclick="repNav(1)" aria-label="Période suivante"${rep.offset >= 0 ? ' disabled' : ''}>${NAV_R}</button>
+          </div>
+          <select class="pseudo-input rep-select" aria-label="Filtrer par habitude" onchange="setRepHabit(this.value)">${habitOpts}</select>
+        </div>
+      </div>
+
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-val">${maxStreak}</div>
-          <div class="stat-label">Série en cours</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val">${completionRate}%</div>
-          <div class="stat-label">Taux de réussite</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val">${totalCompleted.toLocaleString()}</div>
-          <div class="stat-label">Habitudes validées</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val">${perfectDays}</div>
-          <div class="stat-label">Journées parfaites</div>
-        </div>
+        <div class="stat-card"><div class="stat-val">${st.streak}</div><div class="stat-label">Série en cours</div></div>
+        <div class="stat-card"><div class="stat-val">${st.rate}%</div><div class="stat-label">Taux de réussite</div></div>
+        <div class="stat-card"><div class="stat-val">${st.validated.toLocaleString('fr-FR')}</div><div class="stat-label">Habitudes validées</div></div>
+        <div class="stat-card"><div class="stat-val">${st.perfectDays}</div><div class="stat-label">${single ? 'Jours réussis' : 'Journées parfaites'}</div></div>
       </div>
 
       <div class="report-card">
         <div class="report-card-header">
-          <div class="report-card-title">Habitudes validées</div>
-          <div class="report-period-badge">Cette semaine
-            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2 4 5 7 8 4"/></svg>
-          </div>
+          <div class="report-card-title">${single ? 'Réussite par ' + (rep.period === 'year' ? 'mois' : 'jour') : 'Habitudes validées'}</div>
+          ${badge}
         </div>
-        <div class="bar-chart" id="barChart">
-          ${barData.map((b,i)=>`
-            <div class="bar-col">
-              <div class="bar-fill${b.isToday?' active':''}" style="height:${b.pct}%;background:${b.isToday?'var(--accent)':'var(--accent-bg)'}">
-                ${b.isToday?`<div class="bar-tooltip">${b.count} habitudes</div>`:''}
+        <div class="bar-chart${dense ? ' dense' : ''}" id="barChart">
+          ${buckets.map(b => {
+            const pct = b.rate == null ? 0 : Math.max(b.rate > 0 ? 5 : 3, Math.round(b.rate * 100));
+            const tip = b.req > 0 ? `${b.label} : ${b.cnt}/${b.req}` : `${b.label} : –`;
+            return `<div class="bar-col" title="${esc(tip)}">
+              <div class="bar-fill${b.isToday ? ' active' : ''}" style="height:${pct}%;background:${b.isToday ? 'var(--accent)' : 'var(--accent-bg)'}">
+                ${b.isToday && !dense ? `<div class="bar-tooltip">${b.cnt} habitude${b.cnt > 1 ? 's' : ''}</div>` : ''}
               </div>
-              <div class="bar-label">${b.label}</div>
-            </div>`).join('')}
+              <div class="bar-label">${b.showLabel ? esc(rep.period === 'year' ? b.barLabel : b.label) : '&nbsp;'}</div>
+            </div>`;
+          }).join('')}
         </div>
       </div>
 
       <div class="report-card">
         <div class="report-card-header">
           <div class="report-card-title">Évolution du taux de réussite</div>
-          <div class="report-period-badge">6 derniers mois
-            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2 4 5 7 8 4"/></svg>
-          </div>
+          ${badge}
         </div>
-        <canvas id="lineChartReport" height="160"></canvas>
+        <canvas id="lineChartReport" height="160" role="img" aria-label="Courbe du taux de réussite"></canvas>
       </div>
 
       <div class="report-card">
         <div class="report-card-header">
           <div class="report-card-title">Calendrier du mois</div>
-          <div class="report-period-badge">Ce mois-ci
-            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2 4 5 7 8 4"/></svg>
-          </div>
+          <div class="report-period-badge">${cal.label}</div>
         </div>
         <div class="cal-stats-grid">
-          ${DAY_SHORT.map(d=>`<div class="cal-stats-header">${d[0]}${d[1]}</div>`).join('')}
-          ${calHtml}
+          ${DAY_SHORT.map(d => `<div class="cal-stats-header">${d[0]}${d[1]}</div>`).join('')}
+          ${cal.html}
         </div>
       </div>
 
@@ -871,164 +1050,200 @@ function renderReport() {
       <div class="report-card">
         <div class="report-card-header">
           <div class="report-card-title">Courbe d'humeur</div>
-          <div class="report-period-badge">Cette semaine
-            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2 4 5 7 8 4"/></svg>
-          </div>
+          ${badge}
         </div>
-        <canvas id="moodChartReport" height="100"></canvas>
+        <canvas id="moodChartReport" height="100" role="img" aria-label="Courbe d'humeur"></canvas>
       </div>
+
+      ${buildInsightsHtml()}
+    </div>`;
+
+  requestAnimationFrame(() => {
+    drawLineChart('lineChartReport', linePts);
+    drawMoodChart('moodChartReport', moodPts);
+  });
+}
+
+function chartColors() {
+  const dark = isDarkNow();
+  return {
+    grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+    text: dark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
+    accent: cssVar('--accent') || '#12131A',
+  };
+}
+// Découpe en séries continues (les valeurs null interrompent la courbe).
+function chartRuns(pts, xOf, yOf) {
+  const runs = []; let cur = [];
+  pts.forEach((p, i) => { if (p.v == null) { if (cur.length) runs.push(cur); cur = []; } else cur.push({ x: xOf(i), y: yOf(p.v), p, i }); });
+  if (cur.length) runs.push(cur);
+  return runs;
+}
+function strokeRuns(ctx, runs, c, padTop, base, radius) {
+  runs.forEach(run => {
+    if (run.length > 1) {
+      const grad = ctx.createLinearGradient(0, padTop, 0, base);
+      grad.addColorStop(0, withAlpha(c.accent, 0.16)); grad.addColorStop(1, withAlpha(c.accent, 0));
+      ctx.beginPath(); ctx.moveTo(run[0].x, run[0].y); run.forEach((p, i) => i > 0 && ctx.lineTo(p.x, p.y));
+      ctx.lineTo(run[run.length - 1].x, base); ctx.lineTo(run[0].x, base); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(run[0].x, run[0].y); run.forEach((p, i) => i > 0 && ctx.lineTo(p.x, p.y));
+      ctx.strokeStyle = c.accent; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.stroke();
+    }
+    run.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fillStyle = c.accent; ctx.fill(); });
+  });
+}
+function chartEmpty(ctx, W, H, c) {
+  ctx.fillStyle = c.text; ctx.font = '12px Instrument Sans,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Pas encore de données sur cette période', W / 2, H / 2);
+}
+
+function drawLineChart(canvasId, pts) {
+  const canvas = document.getElementById(canvasId); if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth; const H = 160; canvas.width = W; canvas.height = H;
+  const c = chartColors();
+  const pad = { l: 36, r: 16, t: 20, b: 28 };
+  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b, n = pts.length;
+  ctx.strokeStyle = c.grid; ctx.lineWidth = 1;
+  [0, 20, 40, 60, 80, 100].forEach(v => {
+    const y = pad.t + cH - (v / 100) * cH;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = c.text; ctx.font = '10px Instrument Sans,sans-serif'; ctx.textAlign = 'right'; ctx.fillText(`${v}%`, pad.l - 6, y + 4);
+  });
+  const xOf = i => pad.l + (n > 1 ? i / (n - 1) : 0.5) * cW;
+  const yOf = v => pad.t + cH - (v / 100) * cH;
+  const runs = chartRuns(pts, xOf, yOf);
+  if (!runs.length) { chartEmpty(ctx, W, H, c); } else strokeRuns(ctx, runs, c, pad.t, pad.t + cH, n > 12 ? 2.5 : 4);
+  ctx.fillStyle = c.text; ctx.font = '10px Instrument Sans,sans-serif'; ctx.textAlign = 'center';
+  pts.forEach((p, i) => { if (p.showLabel) ctx.fillText(p.label, xOf(i), H - 4); });
+}
+
+function drawMoodChart(canvasId, pts) {
+  const canvas = document.getElementById(canvasId); if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth; const H = 100; canvas.width = W; canvas.height = H;
+  const c = chartColors();
+  const pad = { l: 16, r: 16, t: 16, b: 24 };
+  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b, n = pts.length;
+  const xOf = i => pad.l + (n > 1 ? i / (n - 1) : 0.5) * cW;
+  const yOf = v => pad.t + cH - ((v - 1) / 4) * cH;
+  const runs = chartRuns(pts, xOf, yOf);
+  if (!runs.length) chartEmpty(ctx, W, H, c);
+  else strokeRuns(ctx, runs, c, pad.t, pad.t + cH, n > 12 ? 2.5 : 3.5);
+  ctx.fillStyle = c.text; ctx.font = '10px Instrument Sans,sans-serif'; ctx.textAlign = 'center';
+  pts.forEach((p, i) => { if (p.showLabel) ctx.fillText(p.label, xOf(i), H - 4); });
+  pts.forEach((p, i) => { if (p.v != null && p.emoji) { ctx.font = '14px serif'; ctx.fillText(MOOD_EMOJIS[Math.round(p.v)] || '', xOf(i), yOf(p.v) - 8); } });
+}
+
+/* ═══════════ Insights croisés ═══════════ */
+const INSIGHT_DAYS = 90;
+const INSIGHT_MIN_GROUP = 5;
+const f1 = n => n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const avgOf = a => a.reduce((s, x) => s + x, 0) / a.length;
+
+function insightRows(days) {
+  const now = midnight(); const rows = [];
+  for (let i = 0; i < days; i++) {
+    const d = addDays(now, -i), k = fmtDate(d);
+    if (k < DB.createdAt) break;
+    const sl = (DB.sleepLog || {})[k];
+    const done = {}; let req = 0, dn = 0;
+    HABITS.forEach(h => {
+      if (!isDayActive(h, d)) { done[h.id] = null; return; }
+      const ok = isHabitDoneOn(h, k, d); done[h.id] = ok;
+      if (!h.optional) { req++; if (ok) dn++; }
+    });
+    rows.push({ k, dow: d.getDay(), mood: DB.moods[k] == null ? null : DB.moods[k],
+      sleepH: sl ? (sl.hours + (sl.minutes || 0) / 60) : null,
+      med: (DB.meditation || {})[k] || 0, rate: req > 0 ? dn / req : null, done });
+  }
+  return rows;
+}
+function compareMood(rows, pred) {
+  const yes = [], no = [];
+  rows.forEach(r => { if (r.mood == null) return; const v = pred(r); if (v == null) return; (v ? yes : no).push(r.mood); });
+  if (yes.length < INSIGHT_MIN_GROUP || no.length < INSIGHT_MIN_GROUP) return null;
+  const a = avgOf(yes), b = avgOf(no);
+  return { a, b, diff: a - b, n: yes.length + no.length };
+}
+function compareRate(rows, pred) {
+  const yes = [], no = [];
+  rows.forEach(r => { if (r.rate == null) return; const v = pred(r); if (v == null) return; (v ? yes : no).push(r.rate); });
+  if (yes.length < INSIGHT_MIN_GROUP || no.length < INSIGHT_MIN_GROUP) return null;
+  const a = avgOf(yes), b = avgOf(no);
+  return { a, b, diff: a - b, n: yes.length + no.length };
+}
+
+function computeInsights(rows) {
+  const out = [];
+  const addMood = (icon, text, c, minDiff) => {
+    if (!c || Math.abs(c.diff) < (minDiff || 0.3)) return;
+    out.push({ icon, text, delta: `${c.diff > 0 ? '+' : '−'}${f1(Math.abs(c.diff))}`, good: c.diff > 0, n: c.n, score: Math.abs(c.diff) });
+  };
+  HABITS.forEach(h => {
+    if (h.type === 'weekly') return;
+    const c = compareMood(rows, r => r.done[h.id]);
+    const nm = `« ${esc(h.name)} »`;
+    const verb = h.type === 'bad' ? `évites ${nm}` : (h.type === 'counter' || h.type === 'drink') ? `atteins ton objectif ${nm}` : `fais ${nm}`;
+    addMood(esc(h.emoji || '⭐'), `Les jours où tu ${verb}, ton humeur moyenne est de <b>${c ? f1(c.a) : ''}</b> (contre ${c ? f1(c.b) : ''} sinon).`, c);
+  });
+  addMood('😴', (() => { const c = compareMood(rows, r => r.sleepH == null ? null : r.sleepH >= 7);
+    return c ? `Après une nuit d’au moins 7 h, ton humeur moyenne est de <b>${f1(c.a)}</b> (contre ${f1(c.b)}).` : ''; })(),
+    compareMood(rows, r => r.sleepH == null ? null : r.sleepH >= 7));
+  addMood('🧘', (() => { const c = compareMood(rows, r => r.med > 0);
+    return c ? `Les jours où tu médites, ton humeur moyenne est de <b>${f1(c.a)}</b> (contre ${f1(c.b)}).` : ''; })(),
+    compareMood(rows, r => r.med > 0));
+  addMood('📈', (() => { const c = compareMood(rows, r => r.rate == null ? null : r.rate >= 0.8);
+    return c ? `Quand tu valides au moins 80 % de tes habitudes, ton humeur moyenne est de <b>${f1(c.a)}</b> (contre ${f1(c.b)}).` : ''; })(),
+    compareMood(rows, r => r.rate == null ? null : r.rate >= 0.8));
+
+  const cr = compareRate(rows, r => r.sleepH == null ? null : r.sleepH >= 7);
+  if (cr && Math.abs(cr.diff) >= 0.08) {
+    out.push({ icon: '🌙', text: `Après une nuit de 7 h ou plus, tu valides <b>${Math.round(cr.a * 100)} %</b> de tes habitudes (contre ${Math.round(cr.b * 100)} %).`,
+      delta: `${cr.diff > 0 ? '+' : '−'}${Math.round(Math.abs(cr.diff) * 100)} pts`, good: cr.diff > 0, n: cr.n, score: Math.abs(cr.diff) * 4 });
+  }
+  // Meilleur / pire jour de la semaine
+  const byDow = {};
+  rows.forEach(r => { if (r.mood != null) (byDow[r.dow] = byDow[r.dow] || []).push(r.mood); });
+  const dows = Object.entries(byDow).filter(([, v]) => v.length >= 3).map(([d, v]) => ({ d: Number(d), m: avgOf(v), n: v.length }));
+  if (dows.length >= 4) {
+    dows.sort((a, b) => b.m - a.m);
+    const best = dows[0], worst = dows[dows.length - 1];
+    if (best.m - worst.m >= 0.5) {
+      out.push({ icon: '📅', text: `Ton jour le plus lumineux est le <b>${DAY_FULL[best.d].toLowerCase()}</b> (${f1(best.m)}), le plus difficile le <b>${DAY_FULL[worst.d].toLowerCase()}</b> (${f1(worst.m)}).`,
+        delta: '', good: true, n: dows.reduce((s, x) => s + x.n, 0), score: (best.m - worst.m) * 0.7 });
+    }
+  }
+  return out.filter(x => x.text).sort((a, b) => b.score - a.score).slice(0, 6);
+}
+
+function buildInsightsHtml() {
+  const rows = insightRows(INSIGHT_DAYS);
+  const moods = rows.filter(r => r.mood != null);
+  let body;
+  if (moods.length < 7) {
+    body = `<div class="insight-empty">Il faut au moins 7 jours d’humeur renseignée pour dégager des tendances.
+      <div class="insight-progress">${progressBar(Math.round(moods.length / 7 * 100), 'Jours d’humeur renseignés')}<span>${moods.length} / 7 jours</span></div></div>`;
+  } else {
+    const list = computeInsights(rows);
+    const mean = avgOf(moods.map(r => r.mood));
+    const head = `<div class="insight-summary">Humeur moyenne : <b>${f1(mean)}</b> / 5 sur ${moods.length} jours renseignés</div>`;
+    body = head + (list.length
+      ? list.map(x => `<div class="insight-row">
+          <div class="insight-ico" aria-hidden="true">${x.icon}</div>
+          <div class="insight-main"><div class="insight-text">${x.text}</div><div class="insight-n">sur ${x.n} jours</div></div>
+          ${x.delta ? `<div class="insight-delta ${x.good ? 'up' : 'down'}">${x.delta}</div>` : ''}
+        </div>`).join('')
+      : `<div class="insight-empty">Rien de marquant pour l’instant. Continue à renseigner ton humeur : les tendances apparaissent avec le temps.</div>`);
+  }
+  return `<div class="report-card" id="insightsCard">
+    <div class="report-card-header">
+      <div class="report-card-title">Insights</div>
+      <div class="report-period-badge">${INSIGHT_DAYS} derniers jours</div>
     </div>
-  `;
-
-  requestAnimationFrame(()=>{
-    drawLineChart('lineChartReport');
-    drawMoodChart('moodChartReport');
-  });
-}
-
-function getLast30Completion() {
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
-  let total=0, done=0;
-  for(let i=0;i<30;i++){
-    const d=addDays(todayDate,-i); const k=fmtDate(d);
-    if(k<DB.createdAt) break;
-    HABITS.forEach(h=>{ if(h.optional) return; if(!isDayActive(h,d)) return; total++; if(isHabitDoneOn(h,k,d)) done++; });
-  }
-  return total>0?done/total:0;
-}
-
-function buildBarData() {
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
-  const todayDow=todayDate.getDay()===0?6:todayDate.getDay()-1;
-  const monday=addDays(todayDate,-todayDow);
-  return DAY_SHORT.map((lbl,i)=>{
-    const d=addDays(monday,i); const k=fmtDate(d);
-    const isFuture=d>todayDate;
-    if(isFuture) return {label:lbl,count:0,pct:0,isToday:false};
-    let cnt=0,req=0;
-    HABITS.forEach(h=>{ if(!isDayActive(h,d)) return; req++; if(isHabitDoneOn(h,k,d)) cnt++; });
-    const pct=req>0?Math.max(5,Math.round((cnt/req)*100)):0;
-    return {label:lbl,count:cnt,pct,isToday:i===todayDow};
-  });
-}
-
-function buildCalStats() {
-  const now=new Date(); const year=now.getFullYear(); const month=now.getMonth();
-  const firstDay=new Date(year,month,1); const lastDay=new Date(year,month+1,0);
-  const startDow=firstDay.getDay()===0?6:firstDay.getDay()-1;
-  const today_=today(); let html='';
-  for(let i=0;i<startDow;i++) html+=`<div></div>`;
-  for(let d=1;d<=lastDay.getDate();d++){
-    const dateObj=new Date(year,month,d); const k=fmtDate(dateObj);
-    const isFuture=k>today_;
-    if(isFuture){ html+=`<div class="cal-stats-cell future">${d}</div>`; continue; }
-    if(k<DB.createdAt){ html+=`<div class="cal-stats-cell">${d}</div>`; continue; }
-    let done=0,req=0;
-    HABITS.forEach(h=>{ if(h.optional) return; if(!isDayActive(h,dateObj)) return; req++; if(isHabitDoneOn(h,k,dateObj)) done++; });
-    const rate=req>0?done/req:0;
-    let cls='cal-stats-cell'; if(rate>=1) cls+=' perfect'; else if(rate>=0.7) cls+=' good'; else if(req>0) cls+=' missed';
-    html+=`<div class="${cls}" title="${done}/${req}">${d}</div>`;
-  }
-  return html;
-}
-
-function drawLineChart(canvasId) {
-  const canvas=document.getElementById(canvasId); if(!canvas) return;
-  const ctx=canvas.getContext('2d');
-  const W=canvas.offsetWidth; const H=160; canvas.width=W; canvas.height=H;
-  const isDark=DB.profile.darkMode===true;
-  const accent=cssVar('--accent')||'#12131A';
-  const gridC=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
-  const textC=isDark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.4)';
-
-  const months=[]; const now=new Date();
-  for(let i=5;i>=0;i--){
-    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    const mn=d.getMonth(); const yr=d.getFullYear();
-    let done=0,req=0;
-    const daysInMonth=new Date(yr,mn+1,0).getDate();
-    for(let day=1;day<=daysInMonth;day++){
-      const dt=new Date(yr,mn,day); const k=fmtDate(dt);
-      if(k>fmtDate(now)||k<DB.createdAt) continue;
-      HABITS.forEach(h=>{ if(h.optional) return; if(!isDayActive(h,dt)) return; req++; if(isHabitDoneOn(h,k,dt)) done++; });
-    }
-    months.push({label:MONTH_SHORT[mn],rate:req>0?Math.round((done/req)*100):0});
-  }
-
-  const pad={l:36,r:16,t:20,b:28};
-  const cW=W-pad.l-pad.r; const cH=H-pad.t-pad.b;
-
-  ctx.strokeStyle=gridC; ctx.lineWidth=1;
-  [0,20,40,60,80,100].forEach(v=>{
-    const y=pad.t+cH-(v/100)*cH;
-    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
-    ctx.fillStyle=textC; ctx.font='10px Instrument Sans,sans-serif'; ctx.textAlign='right';
-    ctx.fillText(`${v}%`,pad.l-6,y+4);
-  });
-
-  const points=months.map((m,i)=>({x:pad.l+(i/(months.length-1||1))*cW,y:pad.t+cH-(m.rate/100)*cH,rate:m.rate,label:m.label}));
-
-  const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+cH);
-  grad.addColorStop(0,withAlpha(cssVar('--accent')||'#12131A',0.16)); grad.addColorStop(1,withAlpha(cssVar('--accent')||'#12131A',0));
-  ctx.beginPath(); ctx.moveTo(points[0].x,points[0].y);
-  points.forEach((p,i)=>i>0&&ctx.lineTo(p.x,p.y));
-  ctx.lineTo(points[points.length-1].x,pad.t+cH); ctx.lineTo(points[0].x,pad.t+cH);
-  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
-
-  ctx.beginPath(); ctx.moveTo(points[0].x,points[0].y);
-  points.forEach((p,i)=>i>0&&ctx.lineTo(p.x,p.y));
-  ctx.strokeStyle=accent; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.stroke();
-
-  points.forEach(p=>{
-    ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fillStyle=accent; ctx.fill();
-    ctx.fillStyle=textC; ctx.font='10px Instrument Sans,sans-serif'; ctx.textAlign='center';
-    ctx.fillText(p.label,p.x,H-4);
-  });
-}
-
-function drawMoodChart(canvasId) {
-  const canvas=document.getElementById(canvasId); if(!canvas) return;
-  const ctx=canvas.getContext('2d');
-  const W=canvas.offsetWidth; const H=100; canvas.width=W; canvas.height=H;
-  const isDark=DB.profile.darkMode===true;
-  const textC=isDark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.4)';
-
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
-  const todayDow=todayDate.getDay()===0?6:todayDate.getDay()-1;
-  const monday=addDays(todayDate,-todayDow);
-  const days=DAY_SHORT.map((lbl,i)=>({label:lbl,k:fmtDate(addDays(monday,i))}));
-  const moods=days.map(d=>DB.moods[d.k]||null);
-
-  const pad={l:16,r:16,t:16,b:24};
-  const cW=W-pad.l-pad.r; const cH=H-pad.t-pad.b;
-  const validPoints=[];
-  days.forEach((d,i)=>{
-    const m=moods[i]; if(m===null) return;
-    const x=pad.l+(i/6)*cW; const y=pad.t+cH-((m-1)/4)*cH;
-    validPoints.push({x,y,m,label:d.label});
-  });
-
-  if(validPoints.length>1){
-    const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+cH);
-    grad.addColorStop(0,withAlpha(cssVar('--accent')||'#12131A',0.16)); grad.addColorStop(1,withAlpha(cssVar('--accent')||'#12131A',0));
-    ctx.beginPath(); ctx.moveTo(validPoints[0].x,validPoints[0].y);
-    validPoints.forEach((p,i)=>i>0&&ctx.lineTo(p.x,p.y));
-    ctx.lineTo(validPoints[validPoints.length-1].x,pad.t+cH); ctx.lineTo(validPoints[0].x,pad.t+cH);
-    ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(validPoints[0].x,validPoints[0].y);
-    validPoints.forEach((p,i)=>i>0&&ctx.lineTo(p.x,p.y));
-    ctx.strokeStyle=cssVar('--accent')||'#12131A'; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke();
-  }
-
-  days.forEach((d,i)=>{
-    const m=moods[i]; const x=pad.l+(i/6)*cW;
-    ctx.fillStyle=textC; ctx.font='10px Instrument Sans,sans-serif'; ctx.textAlign='center';
-    ctx.fillText(d.label[0],x,H-4);
-    if(m!==null){
-      const y=pad.t+cH-((m-1)/4)*cH;
-      ctx.font='14px serif'; ctx.fillText(MOOD_EMOJIS[m],x,y-6);
-    }
-  });
+    ${body}
+    <div class="insight-note">Ce sont des corrélations, pas des causes.</div>
+  </div>`;
 }
 
 function renderMyHabits() {
@@ -1041,8 +1256,10 @@ function renderMyHabits() {
       const streak=calcStreak(h).current;
       const done=isHabitDoneOn(h,t,todayDate);
       const live=h.type==='drink'||h.type==='counter';
+      const inert=h.type==='bad'&&!!h.levels;
       let meta=h.freq||'Tous les jours';
       if(live){ const p=habitProgress(h,t); meta=`${fmtNum(p.v)} / ${fmtNum(p.goal)} ${p.unit}`; }
+      if(h.type==='bad'){ const f=isBadFail(h.id,t); const bv=badVal(h.id,t); meta=f?('Craqué'+(bv?' · '+esc(bv):'')):'Tenu bon'; }
       return `<div class="my-habit-row" data-habit-id="${h.id}" style="--ink:${h.color}">
         <div class="my-habit-emoji">${habitIconMarkup(h)}</div>
         <div class="my-habit-info">
@@ -1051,7 +1268,7 @@ function renderMyHabits() {
           ${live?progressBar(Math.min(100,Math.round(dayProgress(h,t,todayDate)*100)),h.name).replace('class="pbar"','class="pbar pbar-thin"'):''}
         </div>
         <button type="button" class="my-habit-edit" onclick="openHabitForm('${h.id}')" aria-label="Modifier ${esc(h.name)}">${icon('edit')}</button>
-        <div class="habit-toggle-btn${done?' done':''}"${live?' aria-hidden="true"':` onclick="toggleHabit('${h.id}')"`}>
+        <div class="habit-toggle-btn${done?' done':''}"${(live||inert)?' aria-hidden="true"':` onclick="toggleHabit('${h.id}')"`}>
           <svg class="check-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10 8 14 16 6"/></svg>
         </div>
       </div>`;
@@ -1071,6 +1288,7 @@ const KIND_INFO = [
   { k:'counter', label:'Compteur',      hint:'Une quantité à atteindre' },
   { k:'water',   label:'Eau',           hint:'Une boisson, en ml' },
   { k:'weekly',  label:'Hebdomadaire',  hint:'Une fois par semaine suffit' },
+  { k:'bad',     label:'À éviter',      hint:'Un comportement à limiter' },
 ];
 const KIND_DEFAULTS = {
   counter: { goal:10,   step:1,   max:20,   unit:'' },
@@ -1112,6 +1330,7 @@ function openHabitForm(id) {
       name:h.name, emoji:h.emoji || '⭐', color:h.color,
       days:habitDays(h), daysTouched:false, optional:!!h.optional,
       goal:nz(h.goal,''), step:nz(h.step,''), max:nz(h.max,''), unit:h.unit || '',
+      levels:(h.levels || []).join(', '), badMode:h.levels ? 'levels' : 'simple',
     };
   } else {
     const used = HABITS.map(x => x.color);
@@ -1120,6 +1339,7 @@ function openHabitForm(id) {
       name:'', emoji:'⭐', color:HABIT_COLORS.find(c => !used.includes(c)) || HABIT_COLORS[0],
       days:ALL_DAYS.slice(), daysTouched:true, optional:false,
       goal:'', step:'', max:'', unit:'',
+      levels:'', badMode:'simple',
     };
   }
   document.getElementById('habitFormTitle').textContent = h ? 'Modifier l’habitude' : 'Nouvelle habitude';
@@ -1208,6 +1428,22 @@ function renderHabitForm() {
       </div>
     </div>`;
 
+  const badBlock = k !== 'bad' ? '' : `
+    <div class="modal-section">
+      ${!isEdit ? `<label class="modal-label">Suggestions</label>
+      <div class="hf-presets-wrap" style="margin-bottom:16px">${BAD_PRESETS.map((p, i) => `<button type="button" class="hf-suggest" onclick="applyBadPreset(${i})">${p.emoji} ${esc(p.name)}</button>`).join('')}</div>` : ''}
+      <label class="modal-label">Suivi</label>
+      <div class="hf-seg" role="group" aria-label="Mode de suivi">
+        <button type="button" class="hf-chip hf-kind${hf.badMode !== 'levels' ? ' selected' : ''}" aria-pressed="${hf.badMode !== 'levels'}" onclick="hfSet('badMode','simple')"><b>Simple</b><span>Un tap = échec du jour</span></button>
+        <button type="button" class="hf-chip hf-kind${hf.badMode === 'levels' ? ' selected' : ''}" aria-pressed="${hf.badMode === 'levels'}" onclick="hfSet('badMode','levels')"><b>Par durée</b><span>Choisir un palier</span></button>
+      </div>
+      ${hf.badMode === 'levels'
+        ? `<label class="modal-label" for="hfLevels" style="margin-top:16px">Paliers <span class="hf-opt">(séparés par des virgules)</span></label>
+           <input id="hfLevels" class="pseudo-input hf-input" type="text" maxlength="80" placeholder="15 min, 30 min, 1 h, 2 h" value="${esc(hf.levels)}" oninput="hfInput('levels',this.value)">
+           <div class="hf-hint">« Non » (aucun écart) est toujours proposé en premier : il valide la journée. Tout autre palier compte comme un échec.</div>`
+        : `<div class="hf-hint">La journée est validée par défaut ; un tap marque l’échec et casse la série.</div>`}
+    </div>`;
+
   const goalBlock = !counterLike ? '' : `
     <div class="modal-section">
       <label class="modal-label">Objectif</label>
@@ -1233,6 +1469,7 @@ function renderHabitForm() {
     ${colorBlock}
     ${daysBlock}
     ${goalBlock}
+    ${badBlock}
     <div class="hf-switch">
       <div>
         <div class="pref-label-text">Optionnelle</div>
@@ -1266,6 +1503,11 @@ function saveHabitForm() {
     if (step > max)  { showToast('L’ajout par tap dépasse le maximum', 3000, 'alert'); return; }
   }
   const unit = waterLike ? 'ml' : String(hf.unit || '').trim().slice(0, 8);
+  let levels = null;
+  if (k === 'bad' && hf.badMode === 'levels') {
+    levels = parseLevels(hf.levels).slice(0, 8);
+    if (levels.length === 0) { showToast('Ajoute au moins un palier (ex. 15 min, 1 h)', 3200, 'alert'); return; }
+  }
 
   if (hf.mode === 'create') {
     const h = {
@@ -1281,6 +1523,7 @@ function saveHabitForm() {
       h.freq = daysLabel(hf.days);
     }
     if (counterLike) { h.goal = goal; h.step = step; h.max = max; h.unit = unit; }
+    if (levels) h.levels = levels;
     HABITS.push(h);
     DB.habits[h.id] = { logs:{} };
     saveData();
@@ -1297,6 +1540,7 @@ function saveHabitForm() {
   h.optional = hf.optional;
   if (!hf.builtin) h.emoji = (hf.emoji || '').trim() || '⭐';
   if (counterLike) { h.goal = goal; h.step = step; h.max = max; h.unit = unit; }
+  if (k === 'bad') { if (levels) h.levels = levels; else delete h.levels; }
   if (k !== 'weekly' && hf.daysTouched) {
     h.weekdayOnly = false;
     if (hf.days.length === 7) delete h.activeDays; else h.activeDays = hf.days.slice();
@@ -1332,6 +1576,7 @@ function renderAchievements() {
     { label:'Séries et régularité', ids:['consistent','dedicated','camel','hydration','bookworm','digital','night_tmd','plant_pwr','phonefree','king','sugarfree','ice_king'] },
     { label:'Étapes et XP',       ids:['first_habit','centurion','xp_500','on_fire','transcend'] },
     { label:'Journées parfaites',          ids:['perfect_wk','perfectist','ironwill'] },
+    { label:'Bien-être',                   ids:['calm_mind','mindful_wk'] },
   ];
 
   const renderBadge=(a,i)=>{
@@ -1407,8 +1652,8 @@ function renderAccount() {
           <button class="pref-edit" onclick="openProfile()">Modifier</button>
         </div>
         <div class="pref-row">
-          <div class="pref-info"><span class="pref-icon">${icon('moon')}</span><div><div class="pref-label-text">Mode sombre</div><div class="pref-hint">Changer de thème</div></div></div>
-          <button class="pref-toggle ${darkOn?'on':'off'}" id="themeToggleAcc" onclick="toggleTheme()">${darkOn?'Activé':'Désactivé'}</button>
+          <div class="pref-info"><span class="pref-icon">${icon('moon')}</span><div><div class="pref-label-text">Thème</div><div class="pref-hint">Clair, sombre ou selon l'appareil</div></div></div>
+          <div class="theme-seg">${themeSegHtml()}</div>
         </div>
         <div class="pref-row">
           <div class="pref-info"><span class="pref-icon">${icon('volume')}</span><div><div class="pref-label-text">Effets sonores</div><div class="pref-hint">Retour sonore à chaque action</div></div></div>
@@ -1424,6 +1669,8 @@ function renderAccount() {
         </div>
       </div>
     </div>
+
+    ${pauseSectionHtml()}
 
     ${remindersSectionHtml()}
 
@@ -1441,7 +1688,7 @@ function openProfile() {
   const sound=DB.profile.soundEnabled!==false;
   const zen=!!DB.profile.zenMode;
   const notifs=!!DB.profile.notifsEnabled;
-  updateToggleBtn('themeToggle',dark);
+  renderThemeSegs();
   updateToggleBtn('soundToggle',sound);
   updateToggleBtn('zenToggle',zen);
   updateToggleBtn('notifsToggle',notifs);
@@ -1853,11 +2100,235 @@ function runBreathPhase() {
   breath.timer = setTimeout(tick, 1000);
 }
 
+/* ═══════════ Méditation ═══════════ */
+const MED_DESC = {
+  silence: 'Un silence apaisé, ponctué par une cloche au début et à la fin.',
+  rain:    'Une pluie douce et continue pour couvrir les bruits alentour.',
+  ocean:   'Des vagues lentes qui montent et descendent, comme une respiration.',
+  drone:   'Une nappe grave et chaude, sans rythme, pour se poser.',
+};
+let med = { dur: 600, amb: 'silence', state: 'idle', remaining: 600, endAt: 0, iv: null, nodes: null, wake: null };
+
+function medElapsed() {
+  const rem = med.state === 'running' ? Math.max(0, Math.ceil((med.endAt - Date.now()) / 1000)) : med.remaining;
+  return Math.max(0, med.dur - rem);
+}
+function medTodayMinutes() { return Math.round((DB.meditation || {})[today()] || 0); }
+
 function openMeditation() {
   document.getElementById('meditationOverlay').classList.add('open');
+  if (med.state === 'running' || med.state === 'paused') { updateMedUi(); return; }
+  med.state = 'idle'; med.remaining = med.dur;
+  updateMedUi();
 }
 function closeMeditation() {
+  if ((med.state === 'running' || med.state === 'paused') && medElapsed() >= 30) {
+    if (!confirm('Arrêter la session en cours ?')) return;
+  }
+  if (med.state === 'running' || med.state === 'paused') stopMeditation(true);
   document.getElementById('meditationOverlay').classList.remove('open');
+}
+function selectMedDuration(min) {
+  if (med.state === 'running' || med.state === 'paused') return;
+  med.dur = min * 60; med.remaining = med.dur; med.state = 'idle';
+  updateMedUi();
+}
+function selectMedAmbience(a) {
+  med.amb = a;
+  if (med.state === 'running') startAmbience(a);
+  updateMedUi();
+}
+function toggleMeditation() {
+  if (med.state === 'idle' || med.state === 'done') { med.remaining = med.dur; medRun(true); }
+  else if (med.state === 'running') medPause();
+  else if (med.state === 'paused') medRun(false);
+}
+function medRun(withBell) {
+  clearInterval(med.iv);
+  med.state = 'running';
+  med.endAt = Date.now() + med.remaining * 1000;
+  if (withBell) playBell();
+  startAmbience(med.amb);
+  med.iv = setInterval(medTick, 250);
+  acquireWake();
+  updateMedUi();
+}
+function medPause() {
+  med.remaining = Math.max(1, Math.ceil((med.endAt - Date.now()) / 1000));
+  clearInterval(med.iv); med.iv = null;
+  stopAmbience(false); releaseWake();
+  med.state = 'paused';
+  updateMedUi();
+}
+function medTick() {
+  const rem = (med.endAt - Date.now()) / 1000;
+  if (rem <= 0) { completeMeditation(); return; }
+  med.remaining = Math.ceil(rem);
+  updateMedClock();
+}
+function completeMeditation() {
+  clearInterval(med.iv); med.iv = null;
+  stopAmbience(false); releaseWake();
+  med.state = 'done'; med.remaining = 0;
+  playBell(); setTimeout(() => playBell(), 2600);
+  const minutes = med.dur / 60;
+  logMeditation(minutes);
+  if (DB.meditationXpDay !== today()) {
+    DB.meditationXpDay = today(); giveXP(10);
+    showToast(`Session terminée : ${minutes} min · +10 XP`, 3600, 'zen');
+  } else {
+    showToast(`Session terminée : ${minutes} min`, 3000, 'zen');
+  }
+  saveData(); checkAchievements();
+  updateMedUi();
+  if (activePage === 'report') renderReport();
+}
+// early = true : l'utilisateur interrompt ; on enregistre le temps réellement médité.
+function stopMeditation(early) {
+  if (med.state !== 'running' && med.state !== 'paused') return;
+  if (early === true) {
+    const mins = Math.floor(medElapsed() / 60);
+    if (mins >= 1) { logMeditation(mins); saveData(); checkAchievements(); }
+  }
+  clearInterval(med.iv); med.iv = null;
+  stopAmbience(false); releaseWake();
+  med.state = 'idle'; med.remaining = med.dur;
+  updateMedUi();
+}
+function logMeditation(minutes) {
+  if (!DB.meditation) DB.meditation = {};
+  DB.meditation[today()] = Math.round(((DB.meditation[today()] || 0) + minutes) * 10) / 10;
+  saveData();
+}
+
+/* ── Interface ── */
+function medFmt(sec) { return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; }
+function updateMedClock() {
+  const clock = document.getElementById('medClock'); if (clock) clock.textContent = medFmt(med.remaining);
+  const ring = document.getElementById('medRing');
+  if (ring) {
+    const total = med.dur;
+    const progress = med.state === 'running'
+      ? 1 - Math.max(0, (med.endAt - Date.now()) / 1000) / total
+      : (med.state === 'done' ? 1 : 1 - med.remaining / total);
+    ring.style.strokeDashoffset = String(880 * (1 - Math.min(1, Math.max(0, med.state === 'idle' ? 0 : progress))));
+  }
+}
+function updateMedUi() {
+  const running = med.state === 'running', paused = med.state === 'paused', busy = running || paused;
+  document.querySelectorAll('#medDurRow .breath-pattern-btn').forEach(b => {
+    const on = Number(b.dataset.min) * 60 === med.dur;
+    b.classList.toggle('active', on); b.setAttribute('aria-pressed', on); b.disabled = busy;
+  });
+  document.querySelectorAll('#medAmbRow .med-amb-btn').forEach(b => {
+    const on = b.dataset.amb === med.amb;
+    b.classList.toggle('active', on); b.setAttribute('aria-pressed', on);
+  });
+  const stage = document.getElementById('medStage');
+  if (stage) stage.classList.toggle('med-running', running);
+  const status = document.getElementById('medStatus');
+  if (status) status.textContent = running ? 'En cours' : paused ? 'En pause' : med.state === 'done' ? 'Session terminée ✓' : 'Prêt';
+  const desc = document.getElementById('medDesc');
+  if (desc) desc.textContent = (MED_DESC[med.amb] || '') + (DB.profile.soundEnabled === false ? ' (Les sons sont désactivés dans ton compte.)' : '');
+  const btn = document.getElementById('medStartBtn');
+  if (btn) {
+    btn.innerHTML = running ? 'Pause' : paused ? `${icon('play')} Reprendre` : med.state === 'done' ? `${icon('play')} Recommencer` : `${icon('play')} Commencer`;
+    btn.classList.toggle('active', running);
+  }
+  const stop = document.getElementById('medStopBtn'); if (stop) stop.classList.toggle('hidden', !busy);
+  const today_ = document.getElementById('medTodayMin'); if (today_) today_.textContent = medTodayMinutes();
+  updateMedClock();
+}
+
+/* ── Écran toujours allumé pendant la séance ── */
+async function acquireWake() { try { if ('wakeLock' in navigator) med.wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+function releaseWake() { try { if (med.wake) { med.wake.release(); med.wake = null; } } catch (e) {} }
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (med.state === 'running') { acquireWake(); medTick(); }
+});
+
+/* ── Sons : cloche et ambiances (Web Audio, aucun fichier) ── */
+function playBell(scale) {
+  if (!DB.profile.soundEnabled || !audioCtx) return;
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime; const base = 196 * (scale || 1);
+    [[1, 0.55, 7], [2.76, 0.28, 4.5], [5.4, 0.14, 3], [8.93, 0.07, 2]].forEach(([ratio, amp, dec]) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = base * ratio;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(amp * 0.5, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t + dec + 0.1);
+    });
+  } catch (e) {}
+}
+function _noiseBuffer(kind) {
+  const sr = audioCtx.sampleRate, len = sr * 4;
+  const buf = audioCtx.createBuffer(1, len, sr); const d = buf.getChannelData(0);
+  if (kind === 'brown') {
+    let last = 0;
+    for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
+  } else {
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852;
+      b3 = 0.8665 * b3 + w * 0.3104856;  b4 = 0.55 * b4 + w * 0.5329522;   b5 = -0.7616 * b5 - w * 0.016898;
+      d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11; b6 = w * 0.115926;
+    }
+  }
+  return buf;
+}
+function startAmbience(kind) {
+  stopAmbience(true);
+  if (!audioCtx || kind === 'silence' || !DB.profile.soundEnabled) return;
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime;
+    const master = audioCtx.createGain();
+    master.gain.setValueAtTime(0, t); master.gain.linearRampToValueAtTime(1, t + 3);
+    master.connect(audioCtx.destination);
+    const stops = [];
+    const noise = type => { const s = audioCtx.createBufferSource(); s.buffer = _noiseBuffer(type); s.loop = true; stops.push(s); return s; };
+    const filt = (type, f) => { const b = audioCtx.createBiquadFilter(); b.type = type; b.frequency.value = f; return b; };
+    const gain = v => { const g = audioCtx.createGain(); g.gain.value = v; return g; };
+    if (kind === 'rain') {
+      const s = noise('pink'), hp = filt('highpass', 900), lp = filt('lowpass', 7000), g = gain(0.5);
+      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s.start();
+    } else if (kind === 'ocean') {
+      const s = noise('brown'), lp = filt('lowpass', 650), swell = gain(0.45);
+      const lfo = audioCtx.createOscillator(), lfoG = gain(0.35);
+      lfo.type = 'sine'; lfo.frequency.value = 0.09; stops.push(lfo);
+      lfo.connect(lfoG); lfoG.connect(swell.gain);
+      s.connect(lp); lp.connect(swell); swell.connect(master); s.start(); lfo.start();
+    } else if (kind === 'drone') {
+      const amp = gain(0.9);
+      const lfo = audioCtx.createOscillator(), lfoG = gain(0.12);
+      lfo.type = 'sine'; lfo.frequency.value = 0.07; stops.push(lfo);
+      lfo.connect(lfoG); lfoG.connect(amp.gain);
+      [[110, 0.10, 0], [164.81, 0.07, 3], [220, 0.06, -3], [329.63, 0.025, 2]].forEach(([f, v, det]) => {
+        const o = audioCtx.createOscillator(), g = gain(v);
+        o.type = 'sine'; o.frequency.value = f; o.detune.value = det; stops.push(o);
+        o.connect(g); g.connect(amp); o.start();
+      });
+      amp.connect(master); lfo.start();
+    }
+    med.nodes = { master, stops };
+  } catch (e) {}
+}
+function stopAmbience(immediate) {
+  const n = med.nodes; if (!n) return; med.nodes = null;
+  try {
+    const t = audioCtx.currentTime;
+    n.master.gain.cancelScheduledValues(t);
+    n.master.gain.setValueAtTime(n.master.gain.value, t);
+    n.master.gain.linearRampToValueAtTime(0, t + (immediate ? 0.05 : 1.5));
+    n.stops.forEach(s => { try { s.stop(t + (immediate ? 0.1 : 1.6)); } catch (e) {} });
+    setTimeout(() => { try { n.master.disconnect(); } catch (e) {} }, immediate ? 200 : 1800);
+  } catch (e) {}
 }
 
 function openSleepEntry() {
@@ -1926,6 +2397,229 @@ function renderSleepSummary() {
     html += `</div>`;
   }
   el.innerHTML = html;
+}
+
+/* ═══════════ Pauses (jours de repos) ═══════════ */
+const PAUSE_REASONS = [
+  ['sick','🤒','Malade'], ['trip','✈️','Voyage'], ['tired','😴','Épuisé'],
+  ['work','💼','Trop de travail'], ['party','🎉','Soirée'], ['other','❓','Autre'],
+];
+const pauseReasonInfo = id => PAUSE_REASONS.find(r => r[0] === id) || PAUSE_REASONS[5];
+const PAUSE_PAST_DAYS = 7;     // on peut justifier jusqu'à 7 jours en arrière
+const PAUSE_FUTURE_DAYS = 30;  // et en planifier jusqu'à 30 jours à l'avance
+const PAUSE_MAX_RANGE = 14;
+
+function isPaused(k) { return !!(DB.pauses && DB.pauses[k]); }
+function pauseQuota() { const q = DB.profile.pauseQuota; return Number.isFinite(q) ? q : 3; }
+function pausesInMonth(ym) { return Object.keys(DB.pauses || {}).filter(k => k.startsWith(ym)).length; }
+function pausesLeft(ym) { return Math.max(0, pauseQuota() - pausesInMonth(ym)); }
+function weekPausedCount(wm) {
+  const s = parseDate(wm); let n = 0;
+  for (let i = 0; i < 7; i++) if (isPaused(fmtDate(addDays(s, i)))) n++;
+  return n;
+}
+function pausedDayNote() {
+  return `<div class="empty-note pause-note"><span class="pause-note-ico">⏸</span><br>Jour de pause<br>Tes séries sont gelées. Profite de ta journée.</div>`;
+}
+
+function renderPauseBanner() {
+  const el = document.getElementById('pauseBanner'); if (!el) return;
+  const t = today(); const p = (DB.pauses || {})[t];
+  if (p) {
+    const r = pauseReasonInfo(p.reason);
+    el.innerHTML = `<div class="pause-banner"><span class="pause-ico" aria-hidden="true">⏸</span>
+      <div class="pause-txt"><b>Jour de pause</b><span>${r[1]} ${r[2]} · séries gelées</span></div>
+      <button type="button" class="pause-btn" onclick="removePause('${t}')">Reprendre</button></div>`;
+    return;
+  }
+  const q = pauseQuota();
+  if (q === 0 && Object.keys(DB.pauses || {}).length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `<button type="button" class="pause-pill" onclick="openPause()">⏸ Pause <span>${pausesLeft(t.slice(0, 7))}/${q} ce mois-ci</span></button>`;
+}
+
+let pf = null; // {from,to,reason}
+function pauseBounds() {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  let min = addDays(t, -PAUSE_PAST_DAYS);
+  const created = parseDate(DB.createdAt);
+  if (created > min) min = created;
+  return { min: fmtDate(min), max: fmtDate(addDays(t, PAUSE_FUTURE_DAYS)) };
+}
+function openPause(dateKey) {
+  const t = dateKey || today();
+  pf = { from: t, to: t, reason: 'sick' };
+  renderPauseForm();
+  document.querySelector('#pauseModal .modal-card').scrollTop = 0;
+  document.getElementById('pauseModal').classList.add('open');
+}
+function closePause() { pf = null; document.getElementById('pauseModal').classList.remove('open'); }
+function pfSet(key, val) {
+  if (!pf) return;
+  pf[key] = val;
+  if (pf.to < pf.from) pf.to = pf.from;
+  renderPauseForm();
+}
+function pfPreset(kind) {
+  if (!pf) return;
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const k = fmtDate(kind === 'yesterday' ? addDays(t, -1) : t);
+  pf.from = k; pf.to = k; renderPauseForm();
+}
+function pauseRangeDays() {
+  if (!pf || !pf.from || !pf.to) return [];
+  const out = []; let d = parseDate(pf.from); const end = parseDate(pf.to);
+  for (let i = 0; i < 40 && d <= end; i++) { out.push(fmtDate(d)); d = addDays(d, 1); }
+  return out;
+}
+function pauseMonthSummary() {
+  const days = pauseRangeDays().filter(k => !isPaused(k));
+  const byMonth = {};
+  days.forEach(k => { const ym = k.slice(0, 7); byMonth[ym] = (byMonth[ym] || 0) + 1; });
+  return { days, byMonth };
+}
+
+function renderPauseForm() {
+  const el = document.getElementById('pauseFormBody'); if (!el || !pf) return;
+  const b = pauseBounds();
+  const { days, byMonth } = pauseMonthSummary();
+  const q = pauseQuota();
+  const ymNow = pf.from.slice(0, 7);
+  const left = pausesLeft(ymNow);
+  const [yy, mm] = ymNow.split('-').map(Number);
+  const monthLbl = MONTH_NAMES[mm - 1].toLowerCase();
+  let status;
+  const over = Object.entries(byMonth).find(([ym, n]) => n > pausesLeft(ym));
+  if (days.length === 0) status = `<span class="pf-ok">Ces jours sont déjà en pause.</span>`;
+  else if (over) status = `<span class="pf-bad">Quota dépassé : il reste ${pausesLeft(over[0])} jour(s) de pause en ${MONTH_NAMES[Number(over[0].slice(5)) - 1].toLowerCase()}.</span>`;
+  else status = `<span class="pf-ok">${days.length} jour${days.length > 1 ? 's' : ''} de pause · il restera ${Math.max(0, left - (byMonth[ymNow] || 0))}/${q} en ${monthLbl}.</span>`;
+
+  const list = Object.keys(DB.pauses || {}).filter(k => k >= fmtDate(addDays(parseDate(today()), -PAUSE_PAST_DAYS))).sort();
+  const listHtml = list.length ? `<div class="modal-section"><label class="modal-label">Pauses récentes et à venir</label>
+      <div class="pf-list">${list.map(k => {
+        const r = pauseReasonInfo(DB.pauses[k].reason); const d = parseDate(k);
+        return `<div class="pf-item"><span>${r[1]} ${DAY_FULL[d.getDay()].slice(0, 3)}. ${d.getDate()} ${MONTH_SHORT[d.getMonth()].toLowerCase()} · ${r[2]}</span>
+          <button type="button" class="pf-del" onclick="removePause('${k}', true)" aria-label="Retirer la pause du ${k}">${icon('trash')}</button></div>`;
+      }).join('')}</div></div>` : '';
+
+  el.innerHTML = `
+    <div class="modal-section">
+      <div class="hf-hint" style="margin:0 0 12px">Une pause <b>gèle tes séries</b> : ces jours ne comptent ni comme réussis, ni comme manqués.</div>
+      <div class="hf-presets" style="margin:0 0 12px">
+        <button type="button" class="hf-link" onclick="pfPreset('today')">Aujourd’hui</button>
+        <button type="button" class="hf-link" onclick="pfPreset('yesterday')">Hier</button>
+      </div>
+      <div class="hf-num-grid">
+        <div class="hf-num-field"><label for="pfFrom">Du</label>
+          <input id="pfFrom" class="sleep-time-input" type="date" min="${b.min}" max="${b.max}" value="${pf.from}" onchange="pfSet('from',this.value||pf.from)"></div>
+        <div class="hf-num-field"><label for="pfTo">Au</label>
+          <input id="pfTo" class="sleep-time-input" type="date" min="${pf.from}" max="${b.max}" value="${pf.to}" onchange="pfSet('to',this.value||pf.to)"></div>
+      </div>
+      <div class="hf-hint pf-status" role="status">${status}</div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">Raison</label>
+      <div class="pf-reasons" role="group" aria-label="Raison de la pause">
+        ${PAUSE_REASONS.map(r => `<button type="button" class="hf-chip pf-reason${pf.reason === r[0] ? ' selected' : ''}" aria-pressed="${pf.reason === r[0]}" onclick="pfSet('reason','${r[0]}')"><span>${r[1]}</span><b>${r[2]}</b></button>`).join('')}
+      </div>
+    </div>
+    ${listHtml}
+    <div class="hf-actions">
+      <button type="button" class="modal-save-btn" onclick="savePause()">Prendre une pause</button>
+    </div>`;
+}
+
+function savePause() {
+  if (!pf) return;
+  const b = pauseBounds();
+  const all = pauseRangeDays();
+  if (all.length === 0) return;
+  if (all.length > PAUSE_MAX_RANGE) { showToast(`Une pause dure ${PAUSE_MAX_RANGE} jours maximum`, 3000, 'alert'); return; }
+  if (all.some(k => k < b.min || k > b.max)) { showToast('Date hors de la période autorisée', 3000, 'alert'); return; }
+  const { days, byMonth } = pauseMonthSummary();
+  if (days.length === 0) { showToast('Ces jours sont déjà en pause', 2500, 'alert'); return; }
+  for (const [ym, n] of Object.entries(byMonth)) {
+    if (n > pausesLeft(ym)) {
+      showToast(`Quota dépassé : ${pausesLeft(ym)} jour(s) restant(s) en ${MONTH_NAMES[Number(ym.slice(5)) - 1].toLowerCase()}`, 3500, 'alert');
+      return;
+    }
+  }
+  if (!DB.pauses) DB.pauses = {};
+  days.forEach(k => { DB.pauses[k] = { reason: pf.reason }; });
+  saveData();
+  closePause();
+  renderActivePage();
+  showToast(`Pause enregistrée · ${days.length} jour${days.length > 1 ? 's' : ''}`, 2800, 'moon');
+}
+function removePause(k, keepOpen) {
+  if (!DB.pauses || !DB.pauses[k]) return;
+  delete DB.pauses[k];
+  saveData();
+  if (keepOpen && pf) renderPauseForm();
+  renderActivePage();
+  if (!keepOpen) showToast('Pause annulée', 2200);
+}
+function changePauseQuota(delta) {
+  DB.profile.pauseQuota = Math.max(0, Math.min(10, pauseQuota() + delta));
+  saveData(); renderAccount();
+}
+function pauseSectionHtml() {
+  const q = pauseQuota(); const ym = today().slice(0, 7); const used = pausesInMonth(ym);
+  return `<div>
+    <div class="account-section-title">Jours de pause</div>
+    <div class="pref-card">
+      <div class="pref-row">
+        <div class="pref-info"><span class="pref-icon">⏸</span><div><div class="pref-label-text">Quota mensuel</div><div class="pref-hint">Jours de repos qui gèlent tes séries</div></div></div>
+        <div class="stepper" role="group" aria-label="Quota de pauses par mois">
+          <button type="button" onclick="changePauseQuota(-1)" aria-label="Moins"${q <= 0 ? ' disabled' : ''}>−</button>
+          <span aria-live="polite">${q}</span>
+          <button type="button" onclick="changePauseQuota(1)" aria-label="Plus"${q >= 10 ? ' disabled' : ''}>+</button>
+        </div>
+      </div>
+      <div class="pref-row">
+        <div class="pref-hint">Ce mois-ci : ${used} / ${q} utilisé${used > 1 ? 's' : ''}</div>
+        <button type="button" class="pref-edit" onclick="openPause()">Poser une pause</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ═══════════ Habitudes « à éviter » ═══════════ */
+const BAD_PRESETS = [
+  { name:'Jeux vidéo',     emoji:'🎮', levels:'15 min, 30 min, 1 h, 2 h, +3 h' },
+  { name:'Scroll',         emoji:'📱', levels:'15 min, 30 min, 1 h, +2 h' },
+  { name:'Films / séries', emoji:'🎬', levels:'1, 2, +3' },
+  { name:'Sucre ajouté',   emoji:'🍬', levels:'' },
+  { name:'Alcool',         emoji:'🍷', levels:'' },
+  { name:'Tabac',          emoji:'🚬', levels:'' },
+];
+function badVal(id, k) { const e = DB.habits[id]; return (e && e.vals && e.vals[k]) || ''; }
+function clearBadVal(id, k) { const e = DB.habits[id]; if (e && e.vals) delete e.vals[k]; }
+function parseLevels(str) {
+  const seen = new Set(); const out = [];
+  String(str || '').split(',').forEach(s => { const v = s.trim().slice(0, 10); if (v && !seen.has(v.toLowerCase())) { seen.add(v.toLowerCase()); out.push(v); } });
+  return out;
+}
+function setBadLevel(id, i) {
+  const h = HABITS.find(x => x.id === id); if (!h || !h.levels) return;
+  const t = today(); const e = DB.habits[id]; if (!e.vals) e.vals = {};
+  const wasFail = e.logs[t] === 'fail';
+  if (i === 0) { delete e.logs[t]; delete e.vals[t]; if (wasFail) playSound('undo'); }
+  else { e.logs[t] = 'fail'; e.vals[t] = h.levels[i - 1]; playSound('fail'); }
+  saveData(); checkAchievements(); afterToggle(id);
+}
+function buildBadLevels(habit, t) {
+  const fail = isBadFail(habit.id, t); const cur = fail ? badVal(habit.id, t) : '';
+  const chips = ['Non', ...habit.levels].map((lbl, i) => {
+    const sel = i === 0 ? !fail : (fail && cur === habit.levels[i - 1]);
+    return `<button type="button" class="bad-chip${i === 0 ? ' bad-chip-ok' : ''}${sel ? ' sel' : ''}" aria-pressed="${sel}" onclick="setBadLevel('${habit.id}',${i})">${esc(lbl)}</button>`;
+  }).join('');
+  return `<div class="bad-levels" role="group" aria-label="${esc(habit.name)}">${chips}</div>`;
+}
+function applyBadPreset(i) {
+  const p = BAD_PRESETS[i]; if (!hf || !p) return;
+  hf.name = p.name; hf.emoji = p.emoji;
+  hf.badMode = p.levels ? 'levels' : 'simple'; hf.levels = p.levels;
+  renderHabitForm();
 }
 
 function init() {

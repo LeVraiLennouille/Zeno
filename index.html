@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script>try{var p=(JSON.parse(localStorage.getItem('ht-v2.6')||'{}').profile)||{};var m=p.themeMode||(p.darkMode===true?'dark':(p.darkMode===undefined?'system':'light'));var d=m==='dark'||(m==='system'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}</script>
   <title>HabitsTracker</title>
 
   <link rel="manifest" href="manifest.json">
@@ -34,6 +35,7 @@
       </button>
     </div>
     <div class="today-hero" id="todayHero"></div>
+    <div class="pause-wrap" id="pauseBanner"></div>
     <div class="tabs-row">
       <button class="tab-btn active" id="tab-btn-today" onclick="switchHomeTab('today')">Aujourd'hui</button>
       <button class="tab-btn" id="tab-btn-weekly" onclick="switchHomeTab('weekly')">Semaine</button>
@@ -216,11 +218,11 @@
         <div class="pref-info">
           <span class="pref-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span>
           <div>
-            <div class="pref-label-text">Mode sombre</div>
-            <div class="pref-hint">Alterner entre thème clair et sombre</div>
+            <div class="pref-label-text">Thème</div>
+            <div class="pref-hint">Clair, sombre ou selon l'appareil</div>
           </div>
         </div>
-        <button class="pref-toggle off" id="themeToggle" onclick="toggleTheme()">Désactivé</button>
+        <div class="theme-seg" id="themeSegProfile"></div>
       </div>
       <div class="pref-row">
         <div class="pref-info">
@@ -297,19 +299,47 @@
     <button id="breathStartBtn" class="breath-start-btn" onclick="toggleBreathing()">Commencer</button>
   </div>
 </div>
-<div id="meditationOverlay" class="modal-overlay" onclick="closeMeditation()">
-  <div class="modal-card meditation-modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title">Méditation</div>
-      <button class="modal-x" onclick="closeMeditation()">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="2" x2="16" y2="16"/><line x1="16" y1="2" x2="2" y2="16"/></svg>
+<div id="meditationOverlay" class="breathing-overlay meditation-overlay" role="dialog" aria-modal="true" aria-labelledby="medTitle">
+  <div class="breathing-inner">
+    <div class="breathing-top">
+      <div class="breathing-title" id="medTitle">Méditation</div>
+      <button class="breathing-close" onclick="closeMeditation()" aria-label="Fermer">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="2" x2="18" y2="18"/><line x1="18" y1="2" x2="2" y2="18"/></svg>
       </button>
     </div>
-    <div class="meditation-coming-soon">
-      <div class="meditation-cs-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="6" r="2.5"/><path d="M12 9.5v4"/><path d="M4 19c2.2-.6 4.5-2 8-2s5.8 1.4 8 2"/><path d="M8 13.5c1 .6 2.4 1 4 1s3-.4 4-1"/></svg></div>
-      <div class="meditation-cs-title">En cours de création</div>
-      <div class="meditation-cs-desc">Les sessions de méditation guidée arrivent bientôt. Reste à l'écoute !</div>
-      <div class="meditation-cs-badge">Bientôt disponible</div>
+    <div class="breath-pattern-row" id="medDurRow" role="group" aria-label="Durée">
+      <button class="breath-pattern-btn" data-min="5" aria-pressed="false" onclick="selectMedDuration(5)"><b>5 min</b><span>Pause</span></button>
+      <button class="breath-pattern-btn active" data-min="10" aria-pressed="true" onclick="selectMedDuration(10)"><b>10 min</b><span>Équilibre</span></button>
+      <button class="breath-pattern-btn" data-min="20" aria-pressed="false" onclick="selectMedDuration(20)"><b>20 min</b><span>Profonde</span></button>
+    </div>
+    <div class="med-amb-row" id="medAmbRow" role="group" aria-label="Ambiance sonore">
+      <button class="med-amb-btn active" data-amb="silence" aria-pressed="true" onclick="selectMedAmbience('silence')">Silence</button>
+      <button class="med-amb-btn" data-amb="rain" aria-pressed="false" onclick="selectMedAmbience('rain')">Pluie</button>
+      <button class="med-amb-btn" data-amb="ocean" aria-pressed="false" onclick="selectMedAmbience('ocean')">Océan</button>
+      <button class="med-amb-btn" data-amb="drone" aria-pressed="false" onclick="selectMedAmbience('drone')">Drone</button>
+    </div>
+    <div class="breath-main">
+      <div class="breath-stage" id="medStage">
+        <svg class="breath-ring" viewBox="0 0 300 300" aria-hidden="true">
+          <circle class="breath-ring-track" cx="150" cy="150" r="140"/>
+          <circle class="breath-ring-fill" id="medRing" cx="150" cy="150" r="140"/>
+        </svg>
+        <div class="breath-orb" aria-hidden="true">
+          <div class="breath-halo breath-halo-1"></div>
+          <div class="breath-halo breath-halo-2"></div>
+          <div class="breath-core"></div>
+        </div>
+        <span id="medClock" class="breath-countdown med-clock">10:00</span>
+      </div>
+      <div id="medStatus" class="breath-phase-label" role="status" aria-live="polite">Prêt</div>
+      <div id="medDesc" class="breath-pattern-desc"></div>
+    </div>
+    <div class="breath-rounds-display">
+      <span id="medTodayMin" class="breath-rounds-num">0</span><span class="breath-rounds-label"> min aujourd'hui</span>
+    </div>
+    <div class="med-actions">
+      <button id="medStartBtn" class="breath-start-btn" onclick="toggleMeditation()">Commencer</button>
+      <button id="medStopBtn" class="med-stop-btn hidden" onclick="stopMeditation(true)">Terminer la séance</button>
     </div>
   </div>
 </div>
@@ -354,6 +384,18 @@
     <div style="padding: 0 20px 20px">
       <button class="modal-save-btn" style="width:100%;height:50px;border-radius:14px;font-size:.95rem" onclick="saveSleepEntry()">Enregistrer</button>
     </div>
+  </div>
+</div>
+
+<div id="pauseModal" class="modal-overlay" onclick="closePause()">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="pauseTitle">Jour de pause</div>
+      <button class="modal-x" onclick="closePause()" aria-label="Fermer">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="2" x2="16" y2="16"/><line x1="16" y1="2" x2="2" y2="16"/></svg>
+      </button>
+    </div>
+    <div id="pauseFormBody"></div>
   </div>
 </div>
 
