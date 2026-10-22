@@ -163,7 +163,9 @@ La page **Habitudes** liste toutes les habitudes (progression du jour, série, v
 - Une habitude créée n'existe qu'**à partir de sa date de création** : aucun jour passé n'est compté comme manqué et les séries démarrent proprement.
 - Le **type n'est pas modifiable** après création (le format de l'historique en dépend) ; tout le reste l'est. Changer l'objectif d'un compteur s'applique aussi à l'historique.
 - Les habitudes par défaut sont modifiables (nom, couleur, jours, objectif…) et supprimables. L'objectif d'eau par défaut est lui aussi configurable.
-- **Supprimer** une habitude efface son historique (confirmation demandée) et détache les rappels qui y étaient liés.
+- **Archiver** (recommandé) masque l'habitude **sans rien perdre** : l'historique, les séries passées et les statistiques restent. Elle disparaît des onglets Aujourd'hui / Semaine / Global et de la page Habitudes, où une section **Archivées** permet de la **restaurer** ; les jours archivés restent « hors plage » (ni réussis, ni manqués). Ses rappels sont désactivés, ses défis en cours abandonnés, sa série n'est plus comptée dans « Série en cours » ni dans les succès, et on peut toujours la consulter dans le Rapport (groupe *Archivées* du filtre).
+- Un toast **Annuler** (8 secondes) suit l'archivage : il restaure l'habitude, réactive ses rappels et rétablit ses défis.
+- **Supprimer définitivement** (formulaire d'édition ou liste des archivées) efface l'historique après confirmation, détache les rappels liés et abandonne les défis, mais reste **annulable pendant 8 secondes** (position, historique, rappels et défis rétablis).
 - Les habitudes sont stockées dans les données de l'app (`habitDefs`) : elles sont donc sauvegardées et réinitialisées avec le reste.
 - Un compteur qui atteint son objectif peut désormais déclencher la **journée parfaite** (avant, seuls les clics sur les cases à cocher le faisaient).
 
@@ -233,7 +235,7 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 - Installable sur iOS (Safari → « Sur l'écran d'accueil ») et Android/desktop (Chrome).
 - **Raccourcis d'icône** (appui long) : voir [Raccourcis PWA](#21--raccourcis-pwa).
 - Mode `standalone`, orientation portrait, langue `fr`, prise en charge des zones sécurisées (encoche, barre d'accueil).
-- **Hors-ligne** via le Service Worker (`ht-v3.1.3`) :
+- **Hors-ligne** via le Service Worker (`ht-v3.4.1`) :
   - HTML : réseau d'abord, repli sur le cache ;
   - fichiers locaux (CSS, JS, icônes, manifeste) : cache d'abord, précachés à l'installation ;
   - Google Fonts : *stale-while-revalidate*.
@@ -242,11 +244,13 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 
 ### 16. 💾 Stockage & confidentialité
 
-Toutes les données (historique, définitions des habitudes, rappels, profil, XP, humeurs, ressentis, journal de sommeil, jours de pause, minutes de méditation, notes du journal, défis, XP de saison, succès) sont stockées dans le `localStorage` sous la clé **`ht-v2.6`**. Aucune donnée ne quitte votre appareil, aucun compte n'est requis. Les données existantes sont migrées automatiquement : à la première ouverture, les habitudes et rappels par défaut sont copiés dans les données, sans toucher à l'historique.
+Toutes les données (historique, définitions des habitudes, rappels, profil, XP, humeurs, ressentis, journal de sommeil, jours de pause, minutes de méditation, notes du journal, défis, XP de saison, succès) sont stockées dans le `localStorage` sous la clé **`ht-v2.6`**. Aucune donnée ne quitte votre appareil, aucun compte n'est requis. Les données existantes sont migrées automatiquement : à la première ouverture, les habitudes et rappels par défaut sont copiés dans les données, sans toucher à l'historique. Une écriture qui échoue (stockage plein, navigation privée) est signalée au lieu de passer inaperçue.
 
 ### 17. ♿ Accessibilité & confort
 
-Barres de progression avec rôle ARIA, libellés accessibles sur les boutons d'icône, zone live pour les phases de respiration, et respect de `prefers-reduced-motion`.
+- **Fenêtres (9 modales, feuilles et écrans plein format) :** rôle `dialog` + `aria-modal` et titre associé ; à l'ouverture le **focus entre dans la fenêtre** (premier champ utile) et le reste de l'app devient **inerte** (`inert` + `aria-hidden`), donc ni clavier ni lecteur d'écran ne s'en échappent ; **Tab / Maj+Tab restent piégés** dans la fenêtre ; **Échap** ferme la fenêtre du dessus (comme le bouton ✕) et le **focus revient** à l'élément qui l'avait ouverte. Les fenêtres fermées sont inertes : Tab n'y entre jamais.
+- Boutons d'icône nommés, barres de progression avec rôle ARIA, toasts annoncés (`role="status"`), zone live pour les phases de respiration.
+- Respect de `prefers-reduced-motion`.
 
 ---
 
@@ -311,6 +315,22 @@ Sur Android (appui long sur l'icône) et sur les navigateurs desktop qui l'accep
 
 Chaque raccourci ouvre `index.html?action=…` ; l'action est exécutée une seule fois et l'URL est aussitôt nettoyée, donc un rechargement ne la rejoue pas. Une action inconnue est ignorée. iOS n'implémente pas les raccourcis d'icône.
 
+### 22. 💾 Sauvegarde : export / import
+
+Dans **Compte → Sauvegarde**. Vider le cache ou changer de téléphone ne doit plus effacer l'historique.
+
+- **Exporter** : télécharge `habitstracker-AAAA-MM-JJ.json` (sur mobile, la feuille de partage permet d'enregistrer le fichier dans Fichiers, Drive, etc.). Le fichier contient une enveloppe (`app`, `schema`, `appVersion`, `exportedAt`) et **toutes** les données.
+- **Importer** : lit un fichier d'export (ou une base brute plus ancienne), affiche un **résumé** (habitudes, XP et niveau, humeurs, notes, date de début) et demande confirmation avant de **remplacer** les données.
+  - **Validation stricte** : liste blanche de champs, dates, types et bornes. Les champs inconnus sont ignorés, les valeurs hors limites écartées, les textes tronqués, les couleurs contrôlées, les doublons et les références orphelines nettoyés. Un fichier hostile ne peut ni injecter de code, ni polluer l'application.
+  - **Annulable** : un **point de restauration** des données précédentes est conservé (`ht-v2.6.bak`) ; un toast « Annuler » apparaît juste après l'import et la ligne **Annuler le dernier import** reste disponible dans Compte. « Réinitialiser » l'efface aussi.
+  - Refusés avec un message clair : fichier illisible, ne ressemblant pas à une sauvegarde, plus de 15 Mo.
+- **Rappel « dernière sauvegarde »** : Compte affiche « Dernière sauvegarde : il y a N jours » (en rouge dès que la sauvegarde est jugée trop ancienne) et l'accueil propose une pastille **Sauvegarder** (avec ✕ pour la repousser de 7 jours) après 14 jours sans sauvegarde, ou 7 jours d'utilisation sans aucune.
+- **Stockage persistant** : la ligne *Stockage protégé* indique si le navigateur s'engage à ne pas vider les données (`navigator.storage.persist()`), l'espace utilisé, et propose un bouton **Protéger**. Pour une app **installée**, la demande est faite automatiquement au lancement.
+
+### 23. 🕛 Changement de jour
+
+Si l'app reste ouverte ou en arrière-plan après minuit, l'écran se met à jour tout seul : cartes remises à zéro, défis évalués, rappels replanifiés, date du jour. Le changement est détecté par un minuteur calé sur minuit, une vérification toutes les 60 s (filet de sécurité en cas de veille ou de changement d'heure) et au retour dans l'app (visibilité, focus). L'invite d'humeur du nouveau jour n'apparaît qu'**au retour de l'utilisateur**, jamais en pleine nuit.
+
 ## 🎨 Direction artistique « Encre »
 
 - **Principe :** interface en noir et blanc, la couleur appartient aux habitudes. Chaque habitude a son encre ; une carte validée se remplit de cette couleur.
@@ -324,11 +344,29 @@ Chaque raccourci ouvre `index.html?action=…` ; l'action est exécutée une seu
 
 ```
 habitstracker/
-├── index.html          # Structure des pages, modales (humeur, profil, sommeil, habitude, rappel), overlays (respiration, méditation)
+├── index.html          # Structure des pages, 9 fenêtres (humeur, profil, sommeil, habitude, rappel, pause, défi, respiration, méditation)
 ├── style.css           # Design system « Encre » (variables CSS, thèmes clair / sombre)
-├── script.js           # Logique complète : données, habitudes personnalisées, XP, séries, succès, rendu, audio, rappels
 ├── sw.js               # Service Worker (cache, hors-ligne, clic sur notification)
-├── manifest.json       # Manifeste PWA
+├── manifest.json       # Manifeste PWA (icônes, raccourcis d'icône)
+├── js/                 # Logique, découpée par domaine (ordre de chargement ci-dessous)
+│   ├── core.js         # Constantes, utilitaires, icônes, données (localStorage)
+│   ├── theme.js        # Thème clair / sombre / automatique
+│   ├── progress.js     # Audio, toasts, XP et niveaux, séries, succès, actions sur les habitudes, confettis
+│   ├── home.js         # Navigation et page Accueil
+│   ├── mood.js         # Humeur, calendrier d'humeur, journal du jour
+│   ├── report.js       # Rapport interactif, graphiques, insights
+│   ├── habits.js       # Page Habitudes, formulaire d'habitude, habitudes « à éviter »
+│   ├── account.js      # Page Succès, page Compte, profil, réinitialisation
+│   ├── reminders.js    # Rappels configurables et notifications
+│   ├── wellness.js     # Respiration, méditation, sommeil
+│   ├── pause.js        # Jours de pause
+│   ├── challenges.js   # Saisons et défis
+│   ├── shortcuts.js    # Raccourcis PWA
+│   ├── backup.js       # Export / import, stockage persistant, rappel de sauvegarde
+│   ├── archive.js      # Toast « Annuler » et archivage
+│   ├── day.js          # Changement de jour
+│   ├── a11y.js         # Accessibilité des fenêtres
+│   └── app.js          # Initialisation
 └── assets/
     ├── icon-192.png
     ├── icon-512.png
@@ -336,13 +374,28 @@ habitstracker/
     └── apple-touch-icon.png
 ```
 
+> **Pourquoi des scripts classiques et pas des modules ES ?** Les gestionnaires `onclick="…"` du HTML et des gabarits appellent des fonctions globales, et plusieurs états (`DB`, `HABITS`, les formulaires) sont partagés et réaffectés. Des `import`/`export` obligeraient à remplacer ces appels par une délégation d'événements et à passer par des accesseurs : un chantier plus risqué que le gain. Le découpage actuel apporte déjà l'essentiel (fichiers courts et thématiques) **sans changer le comportement**. Les fichiers partagent la portée globale et se chargent dans l'ordre listé dans `index.html` ; une instruction exécutée au chargement ne doit donc dépendre que de fichiers situés plus haut.
+
 **Stack :** HTML · CSS · JavaScript vanilla · Web Audio API · Canvas API · Service Worker API · Web Notifications API · localStorage.
 
 **Aucun framework, aucun bundler, aucun serveur.** La seule ressource externe est la police Google Fonts (mise en cache par le Service Worker pour l'usage hors-ligne).
 
 ---
 
+## ▶️ Lancer le projet
+
+Le Service Worker nécessite `https://` ou `http://localhost` :
+
+```bash
+# depuis le dossier du projet
+python3 -m http.server 8000
+# puis ouvrir http://localhost:8000
+```
+
+---
+
 ## 🧭 À venir
 
 - Rappels Web Push (notifications app fermée, nécessite un petit serveur)
+- Conversion en modules ES (nécessite de remplacer les `onclick` inline par une délégation d'événements)
 - Réorganisation des habitudes par glisser-déposer

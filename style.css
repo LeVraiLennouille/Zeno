@@ -390,9 +390,8 @@ canvas { display: block; width: 100% !important; }
 .today-card.done .step-btn { border-color: var(--ink-text); color: var(--ink-text); }
 .today-card.done .step-btn:hover { background: var(--ink-text); color: var(--ink); }
 
-.bad-badge { font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.bad-badge.ok   { background: var(--surface-2); color: var(--success); }
-.bad-badge.fail { background: var(--surface-2); color: var(--danger); }
+
+
 
 .week-day-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .week-day-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -640,8 +639,7 @@ canvas { display: block; width: 100% !important; }
 .bar-fill.active .bar-tooltip { opacity: 1; }
 .bar-label { font-size: 0.74rem; color: var(--text-2); font-weight: 600; }
 
-.line-chart-wrap { position: relative; height: 160px; }
-.mood-chart-wrap { position: relative; height: 100px; }
+
 
 .cal-stats-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cal-stats-header { text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--text-2); padding-bottom: 6px; }
@@ -702,7 +700,7 @@ canvas { display: block; width: 100% !important; }
 .my-habit-info { flex: 1; min-width: 0; }
 .my-habit-name { font-size: 1.1rem; }
 .my-habit-meta { font-size: 0.8rem; color: var(--text-2); }
-.my-habit-streak { font-size: 0.8rem; font-weight: 700; color: var(--orange); white-space: nowrap; }
+
 .my-habit-row .habit-toggle-btn { width: 42px; height: 42px; border-width: 2px; }
 .my-habit-row .habit-toggle-btn svg { width: 20px; height: 20px; }
 
@@ -1027,12 +1025,11 @@ canvas { display: block; width: 100% !important; }
 .sleep-time-label { font-size: 0.85rem; font-weight: 600; color: var(--text-2); }
 .sleep-date-input { margin-top: 0; }
 
-.meditation-modal { padding-bottom: 0; }
-.meditation-coming-soon { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 12px 24px 40px; }
-.meditation-cs-icon { font-size: 3.2rem; line-height: 1; }
-.meditation-cs-title { font-family: var(--f-display); font-stretch: 85%; font-weight: 700; font-size: 1.4rem; color: var(--text); }
-.meditation-cs-desc { max-width: 270px; font-size: 0.92rem; color: var(--text-2); }
-.meditation-cs-badge { margin-top: 6px; padding: 6px 18px; border-radius: 20px; border: 2px solid var(--text); font-size: 0.82rem; font-weight: 700; color: var(--text); }
+
+
+
+
+
 
 .breathing-overlay {
   --text: #F0EFEA; --text-2: #B3B6C2; --text-3: #80838F;
@@ -1189,8 +1186,7 @@ canvas { display: block; width: 100% !important; }
 
 .confetti-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 300; }
 
-.empty-state { text-align: center; padding: 48px 24px; color: var(--text-2); }
-.empty-state-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
 
 @keyframes stamp {
   0%   { transform: scale(0.97); }
@@ -1231,7 +1227,7 @@ canvas { display: block; width: 100% !important; }
 .pref-icon { width: 36px; height: 36px; border-radius: 12px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; }
 .pref-icon .ic { width: 18px; height: 18px; }
 .account-avatar .ic { width: 32px; height: 32px; }
-.meditation-cs-icon .ic { width: 52px; height: 52px; }
+
 .modal-label .ic { width: 15px; height: 15px; vertical-align: -2px; }
 .modal-reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .modal-reset-btn .ic { width: 18px; height: 18px; }
@@ -1494,3 +1490,48 @@ button.report-period-badge:hover { background: var(--text); color: var(--bg); }
 .cf-custom { margin-left: 4px; }
 .cf-days-input { display: inline-block; width: 76px; height: 38px; padding: 0 8px; text-align: center; flex: none; }
 .cf-min { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 0.9rem; color: var(--text); }
+
+/* ── Utilitaires ── */
+[hidden] { display: none !important; }
+[tabindex="-1"]:focus { outline: none; }
+.pref-hint.warn { color: var(--danger); font-weight: 600; }
+
+/* ── Toast « Annuler » ── */
+.undo-toast {
+  position: fixed; left: 50%; z-index: 650;
+  bottom: calc(var(--dock-h) + var(--safe-b) + 84px);
+  display: flex; align-items: center; gap: 14px;
+  width: max-content; max-width: min(92vw, 420px);
+  padding: 8px 8px 8px 18px; border-radius: 16px;
+  background: var(--text); color: var(--bg);
+  font-size: 0.9rem; font-weight: 600; line-height: 1.3;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%) translateY(14px); opacity: 0; visibility: hidden;
+  transition: opacity 0.2s, transform 0.2s, visibility 0s linear 0.2s;
+}
+.undo-toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); transition-delay: 0s; }
+.undo-toast button { min-height: 40px; padding: 0 16px; border-radius: 11px; background: var(--bg); color: var(--text); font-weight: 800; font-size: 0.88rem; flex-shrink: 0; }
+.undo-toast button:hover { background: var(--accent-bg, var(--bg)); }
+@media (prefers-reduced-motion: reduce) { .undo-toast { transition: none; } }
+
+/* ── Archivage ── */
+.hf-archive-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 46px; border-radius: 14px; border: 1.5px solid var(--border-strong); font-weight: 700; font-size: 0.92rem; color: var(--text); }
+.hf-archive-btn:hover { background: var(--surface-2); }
+.archived-section { margin-top: 28px; padding: 0 16px; }
+.archived-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.archived-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1.5px dashed var(--border-strong); }
+.archived-emoji { width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: var(--ink); display: flex; align-items: center; justify-content: center; color: var(--ink-text, #12131A); opacity: 0.55; }
+.archived-emoji svg { width: 22px; height: 22px; }
+.archived-info { flex: 1; min-width: 0; }
+.archived-name { font-family: var(--f-display); font-stretch: 85%; font-weight: 700; font-size: 1rem; color: var(--text); overflow-wrap: anywhere; }
+.archived-meta { font-size: 0.76rem; color: var(--text-2); }
+.archived-del { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
+.archived-del:hover { background: var(--danger); color: #fff; }
+.archived-del .ic { width: 16px; height: 16px; }
+
+/* ── Rappel de sauvegarde ── */
+.backup-nudge { display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 14px; border-radius: 16px; background: var(--surface); border: 1.5px solid var(--border-strong); }
+.backup-nudge-txt { flex: 1; min-width: 0; font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.backup-x { width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; color: var(--text-3); font-size: 0.9rem; }
+.backup-x:hover { background: var(--surface-2); color: var(--text); }
+.toast { z-index: 700; }

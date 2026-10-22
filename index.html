@@ -36,6 +36,7 @@
     </div>
     <div class="today-hero" id="todayHero"></div>
     <div class="pause-wrap" id="pauseBanner"></div>
+    <div class="pause-wrap" id="backupNudge"></div>
     <div class="tabs-row">
       <button class="tab-btn active" id="tab-btn-today" onclick="switchHomeTab('today')">Aujourd'hui</button>
       <button class="tab-btn" id="tab-btn-weekly" onclick="switchHomeTab('weekly')">Semaine</button>
@@ -438,9 +439,28 @@
   </div>
 </div>
 
+<input type="file" id="importFile" accept="application/json,.json" hidden onchange="onImportFile(event)">
+<div id="undoToast" class="undo-toast" role="status" aria-live="polite"><span id="undoToastMsg"></span><button type="button" id="undoToastBtn" onclick="runUndo()">Annuler</button></div>
 <div id="toast" class="toast"></div>
 <canvas class="confetti-overlay" id="confettiCanvas"></canvas>
-<script src="script.js"></script>
+<script src="js/core.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/progress.js"></script>
+<script src="js/home.js"></script>
+<script src="js/mood.js"></script>
+<script src="js/report.js"></script>
+<script src="js/habits.js"></script>
+<script src="js/account.js"></script>
+<script src="js/reminders.js"></script>
+<script src="js/wellness.js"></script>
+<script src="js/pause.js"></script>
+<script src="js/challenges.js"></script>
+<script src="js/shortcuts.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/archive.js"></script>
+<script src="js/day.js"></script>
+<script src="js/a11y.js"></script>
+<script src="js/app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -458,4 +478,4 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 </body>
-</html>
+</html>
