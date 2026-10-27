@@ -1,153 +1,32 @@
-/* HabitsTracker · Réorganisation des habitudes (glisser-déposer, boutons, clavier)
- * Script classique : il partage la portée globale avec les autres fichiers de js/ (ordre de chargement : voir index.html). */
-
-/* L'ordre des habitudes est l'ordre du tableau HABITS (= DB.habitDefs) : il s'applique donc partout
- * (Accueil, Semaine, Global, Rapport, rappels…) et il est exporté avec les données. */
-let reorderMode = false;
-let _drag = null;
-const GRIP_SVG = `<svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="7" cy="5" r="1.7"/><circle cx="13" cy="5" r="1.7"/><circle cx="7" cy="10" r="1.7"/><circle cx="13" cy="10" r="1.7"/><circle cx="7" cy="15" r="1.7"/><circle cx="13" cy="15" r="1.7"/></svg>`;
-
-function toggleReorderMode() {
-  reorderMode = !reorderMode;
-  const b = document.getElementById('reorderBtn');
-  if (b) { b.setAttribute('aria-pressed', String(reorderMode)); b.classList.toggle('active', reorderMode); }
-  renderMyHabits();
-  if (reorderMode) { const first = document.querySelector('#reorderList .drag-handle'); if (first) first.focus({ preventScroll: true }); }
-}
-
-// Applique un nouvel ordre aux habitudes « vivantes » ; les archivées gardent leur emplacement.
-function applyHabitOrder(liveIds) {
-  const slots = []; HABITS.forEach((h, i) => { if (!h.archived) slots.push(i); });
-  if (liveIds.length !== slots.length) return false;
-  const byId = {}; HABITS.forEach(h => { byId[h.id] = h; });
-  if (!liveIds.every(id => byId[id] && !byId[id].archived)) return false;
-  const next = HABITS.slice();
-  liveIds.forEach((id, n) => { next[slots[n]] = byId[id]; });
-  HABITS.splice(0, HABITS.length, ...next);
-  saveData();
-  return true;
-}
-function announceReorder(h, pos, total) {
-  const el = document.getElementById('reorderStatus');
-  if (el) el.textContent = `${h.name} : position ${pos} sur ${total}`;
-}
-function moveHabit(id, delta) {
-  const ids = liveHabits().map(h => h.id);
-  const i = ids.indexOf(id), j = i + delta;
-  if (i < 0 || j < 0 || j >= ids.length) return false;
-  [ids[i], ids[j]] = [ids[j], ids[i]];
-  if (!applyHabitOrder(ids)) return false;
-  renderMyHabits();
-  const h = HABITS.find(x => x.id === id);
-  announceReorder(h, j + 1, ids.length);
-  const sel = `#reorderList .reorder-row[data-habit-id="${id}"]`;
-  const btn = document.querySelector(`${sel} .${delta < 0 ? 'rb-up' : 'rb-down'}:not([disabled])`) || document.querySelector(`${sel} .drag-handle`);
-  if (btn) btn.focus({ preventScroll: true });
-  return true;
-}
-function reorderKey(e, id) {
-  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-    e.preventDefault();
-    const ok = moveHabit(id, e.key === 'ArrowUp' ? -1 : 1);
-    if (ok) { const hnd = document.querySelector(`#reorderList .reorder-row[data-habit-id="${id}"] .drag-handle`); if (hnd) hnd.focus({ preventScroll: true }); }
-  }
-}
-
-function renderReorderList(container) {
-  const live = liveHabits();
-  container.innerHTML = `
+let reorderMode=!1;
+let _drag=null;
+const GRIP_SVG='<svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="7" cy="5" r="1.7"/><circle cx="13" cy="5" r="1.7"/><circle cx="7" cy="10" r="1.7"/><circle cx="13" cy="10" r="1.7"/><circle cx="7" cy="15" r="1.7"/><circle cx="13" cy="15" r="1.7"/></svg>';
+function toggleReorderMode(){reorderMode=!reorderMode;const e=document.getElementById("reorderBtn");if(e&&(e.setAttribute("aria-pressed",String(reorderMode)),e.classList.toggle("active",reorderMode)),renderMyHabits(),reorderMode){const r=document.querySelector("#reorderList .drag-handle");r&&r.focus({preventScroll:!0})}}
+function applyHabitOrder(t){const a=[];if(HABITS.forEach((e,n)=>{e.archived||a.push(n)}),t.length!==a.length)return!1;const r={};if(HABITS.forEach(e=>{r[e.id]=e}),!t.every(e=>r[e]&&!r[e].archived))return!1;const c=HABITS.slice();return t.forEach((e,n)=>{c[a[n]]=r[e]}),HABITS.splice(0,HABITS.length,...c),saveData(),!0}
+function announceReorder(n,t,o){const e=document.getElementById("reorderStatus");e&&(e.textContent=`${n.name} : position ${t} sur ${o}`)}
+function moveHabit(n,i){const e=liveHabits().map(o=>o.id),t=e.indexOf(n),r=t+i;if(t<0||r<0||r>=e.length||([e[t],e[r]]=[e[r],e[t]],!applyHabitOrder(e)))return!1;renderMyHabits();const s=HABITS.find(o=>o.id===n);announceReorder(s,r+1,e.length);const d=`#reorderList .reorder-row[data-habit-id="${n}"]`,a=document.querySelector(`${d} .${i<0?"rb-up":"rb-down"}:not([disabled])`)||document.querySelector(`${d} .drag-handle`);return a&&a.focus({preventScroll:!0}),!0}
+function reorderKey(r,e){if((r.key==="ArrowUp"||r.key==="ArrowDown")&&(r.preventDefault(),moveHabit(e,r.key==="ArrowUp"?-1:1))){const o=document.querySelector(`#reorderList .reorder-row[data-habit-id="${e}"] .drag-handle`);o&&o.focus({preventScroll:!0})}}
+function renderReorderList(i){const t=liveHabits();i.innerHTML=`
     <div class="reorder-hint" role="note">
       <span>Fais glisser <b>⠿</b> (ou ↑ ↓ au clavier). L’ordre s’applique partout.</span>
       <button type="button" class="pref-edit" onclick="toggleReorderMode()">Terminé</button>
     </div>
     <div class="my-habits-list reordering" id="reorderList">
-      ${live.map((h, i) => `<div class="reorder-row" data-habit-id="${h.id}" style="--ink:${h.color}">
-        <button type="button" class="drag-handle" aria-label="Déplacer ${esc(h.name)} (position ${i + 1} sur ${live.length}). Flèches haut et bas pour réordonner." onpointerdown="startHabitDrag(event,'${h.id}')" onkeydown="reorderKey(event,'${h.id}')">${GRIP_SVG}</button>
-        <div class="my-habit-emoji">${habitIconMarkup(h)}</div>
-        <div class="reorder-name">${esc(h.name)}</div>
+      ${t.map((e,r)=>`<div class="reorder-row" data-habit-id="${e.id}" style="--ink:${e.color}">
+        <button type="button" class="drag-handle" aria-label="Déplacer ${esc(e.name)} (position ${r+1} sur ${t.length}). Flèches haut et bas pour réordonner." onpointerdown="startHabitDrag(event,'${e.id}')" onkeydown="reorderKey(event,'${e.id}')">${GRIP_SVG}</button>
+        <div class="my-habit-emoji">${habitIconMarkup(e)}</div>
+        <div class="reorder-name">${esc(e.name)}</div>
         <div class="reorder-btns">
-          <button type="button" class="rb-up" onclick="moveHabit('${h.id}',-1)" aria-label="Monter ${esc(h.name)}"${i === 0 ? ' disabled' : ''}>↑</button>
-          <button type="button" class="rb-down" onclick="moveHabit('${h.id}',1)" aria-label="Descendre ${esc(h.name)}"${i === live.length - 1 ? ' disabled' : ''}>↓</button>
+          <button type="button" class="rb-up" onclick="moveHabit('${e.id}',-1)" aria-label="Monter ${esc(e.name)}"${r===0?" disabled":""}>↑</button>
+          <button type="button" class="rb-down" onclick="moveHabit('${e.id}',1)" aria-label="Descendre ${esc(e.name)}"${r===t.length-1?" disabled":""}>↓</button>
         </div>
-      </div>`).join('')}
+      </div>`).join("")}
     </div>
-    <div id="reorderStatus" class="sr-only" role="status" aria-live="polite"></div>`;
-}
-
-/* ── Glisser-déposer au pointeur (souris, doigt, stylet) ── */
-function startHabitDrag(e, id) {
-  if (e.button !== undefined && e.button !== 0) return;
-  const list = document.getElementById('reorderList'); if (!list) return;
-  e.preventDefault();
-  const rows = [...list.querySelectorAll('.reorder-row')];
-  const idx = rows.findIndex(r => r.dataset.habitId === id); if (idx < 0) return;
-  const sy = window.scrollY;
-  const rects = rows.map(r => { const b = r.getBoundingClientRect(); return { top: b.top + sy, h: b.height }; });
-  const gap = rows.length > 1 ? Math.max(0, rects[1].top - (rects[0].top + rects[0].h)) : 0;
-  const handle = e.currentTarget;
-  _drag = { id, idx, rows, rects, slot: rects[idx].h + gap, startY: e.clientY, startScroll: sy, over: idx, y: e.clientY, handle, raf: 0, pid: e.pointerId };
-  rows[idx].classList.add('dragging');
-  list.classList.add('is-dragging');
-  try { handle.setPointerCapture(e.pointerId); } catch (_) {}
-  handle.addEventListener('pointermove', onDragMove);
-  handle.addEventListener('pointerup', onDragEnd);
-  handle.addEventListener('pointercancel', onDragCancel);
-  _drag.raf = requestAnimationFrame(dragAutoScroll);
-}
-function updateDrag() {
-  const d = _drag; if (!d) return;
-  const dy = (d.y - d.startY) + (window.scrollY - d.startScroll);
-  const me = d.rects[d.idx];
-  const center = me.top + me.h / 2 + dy;
-  d.rows[d.idx].style.transform = `translateY(${dy}px)`;
-  let over = 0;
-  d.rects.forEach((r, k) => { if (k !== d.idx && r.top + r.h / 2 < center) over++; });
-  d.over = over;
-  d.rows.forEach((row, k) => {
-    if (k === d.idx) return;
-    let shift = 0;
-    if (d.idx < k && k <= over) shift = -d.slot;
-    else if (over <= k && k < d.idx) shift = d.slot;
-    row.style.transform = shift ? `translateY(${shift}px)` : '';
-  });
-}
-function onDragMove(e) { if (!_drag) return; _drag.y = e.clientY; updateDrag(); }
-function dragAutoScroll() {
-  const d = _drag; if (!d) return;
-  // Pas de défilement automatique tant que l'utilisateur n'a pas vraiment déplacé la ligne ;
-  // les seuils tiennent compte de l'en-tête (haut) et du dock flottant (bas).
-  if (Math.abs(d.y - d.startY) > 14) {
-    const topEdge = 110, botEdge = window.innerHeight - 170;
-    if (d.y < topEdge) window.scrollBy(0, -Math.ceil((topEdge - d.y) / 6));
-    else if (d.y > botEdge) window.scrollBy(0, Math.ceil((d.y - botEdge) / 6));
-  }
-  updateDrag();
-  d.raf = requestAnimationFrame(dragAutoScroll);
-}
-function cleanupDrag() {
-  const d = _drag; if (!d) return;
-  cancelAnimationFrame(d.raf);
-  d.handle.removeEventListener('pointermove', onDragMove);
-  d.handle.removeEventListener('pointerup', onDragEnd);
-  d.handle.removeEventListener('pointercancel', onDragCancel);
-  try { d.handle.releasePointerCapture(d.pid); } catch (_) {}
-  d.rows.forEach(r => { r.style.transform = ''; r.classList.remove('dragging'); });
-  const list = document.getElementById('reorderList'); if (list) list.classList.remove('is-dragging');
-  _drag = null;
-}
-function onDragEnd() {
-  const d = _drag; if (!d) return;
-  const { id, idx, over } = d;
-  cleanupDrag();
-  if (over !== idx) {
-    const ids = liveHabits().map(h => h.id);
-    ids.splice(idx, 1); ids.splice(over, 0, id);
-    if (applyHabitOrder(ids)) {
-      renderMyHabits();
-      announceReorder(HABITS.find(x => x.id === id), over + 1, ids.length);
-    }
-  }
-  const hnd = document.querySelector(`#reorderList .reorder-row[data-habit-id="${id}"] .drag-handle`);
-  if (hnd) hnd.focus({ preventScroll: true });
-}
-function onDragCancel() { cleanupDrag(); }
+    <div id="reorderStatus" class="sr-only" role="status" aria-live="polite"></div>`}
+function startHabitDrag(t,d){if(t.button!==void 0&&t.button!==0)return;const i=document.getElementById("reorderList");if(!i)return;t.preventDefault();const n=[...i.querySelectorAll(".reorder-row")],r=n.findIndex(a=>a.dataset.habitId===d);if(r<0)return;const s=window.scrollY,e=n.map(a=>{const c=a.getBoundingClientRect();return{top:c.top+s,h:c.height}}),l=n.length>1?Math.max(0,e[1].top-(e[0].top+e[0].h)):0,o=t.currentTarget;_drag={id:d,idx:r,rows:n,rects:e,slot:e[r].h+l,startY:t.clientY,startScroll:s,over:r,y:t.clientY,handle:o,raf:0,pid:t.pointerId},n[r].classList.add("dragging"),i.classList.add("is-dragging");try{o.setPointerCapture(t.pointerId)}catch{}o.addEventListener("pointermove",onDragMove),o.addEventListener("pointerup",onDragEnd),o.addEventListener("pointercancel",onDragCancel),_drag.raf=requestAnimationFrame(dragAutoScroll)}
+function updateDrag(){const t=_drag;if(!t)return;const i=t.y-t.startY+(window.scrollY-t.startScroll),n=t.rects[t.idx],a=n.top+n.h/2+i;t.rows[t.idx].style.transform=`translateY(${i}px)`;let s=0;t.rects.forEach((o,r)=>{r!==t.idx&&o.top+o.h/2<a&&s++}),t.over=s,t.rows.forEach((o,r)=>{if(r===t.idx)return;let e=0;t.idx<r&&r<=s?e=-t.slot:s<=r&&r<t.idx&&(e=t.slot),o.style.transform=e?`translateY(${e}px)`:""})}
+function onDragMove(r){_drag&&(_drag.y=r.clientY,updateDrag())}
+function dragAutoScroll(){const t=_drag;if(t){if(Math.abs(t.y-t.startY)>14){const e=window.innerHeight-170;t.y<110?window.scrollBy(0,-Math.ceil((110-t.y)/6)):t.y>e&&window.scrollBy(0,Math.ceil((t.y-e)/6))}updateDrag(),t.raf=requestAnimationFrame(dragAutoScroll)}}
+function cleanupDrag(){const e=_drag;if(!e)return;cancelAnimationFrame(e.raf),e.handle.removeEventListener("pointermove",onDragMove),e.handle.removeEventListener("pointerup",onDragEnd),e.handle.removeEventListener("pointercancel",onDragCancel);try{e.handle.releasePointerCapture(e.pid)}catch{}e.rows.forEach(n=>{n.style.transform="",n.classList.remove("dragging")});const r=document.getElementById("reorderList");r&&r.classList.remove("is-dragging"),_drag=null}
+function onDragEnd(){const n=_drag;if(!n)return;const{id:r,idx:t,over:d}=n;if(cleanupDrag(),d!==t){const e=liveHabits().map(i=>i.id);e.splice(t,1),e.splice(d,0,r),applyHabitOrder(e)&&(renderMyHabits(),announceReorder(HABITS.find(i=>i.id===r),d+1,e.length))}const o=document.querySelector(`#reorderList .reorder-row[data-habit-id="${r}"] .drag-handle`);o&&o.focus({preventScroll:!0})}
+function onDragCancel(){cleanupDrag()}

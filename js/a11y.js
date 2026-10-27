@@ -1,73 +1,12 @@
-/* HabitsTracker · Accessibilité des fenêtres (focus, Échap, rôles ARIA)
- * Script classique : il partage la portée globale avec les autres fichiers de js/ (ordre de chargement : voir index.html). */
-
-/* ═══════════ Accessibilité des fenêtres (modales, feuilles, plein écran) ═══════════ */
-const DIALOG_SELECTOR = '.modal-overlay, .breathing-overlay';
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-let _dialogStack = [];
-const _dialogOpeners = new Map();
-
-function allDialogs() { return [...document.querySelectorAll(DIALOG_SELECTOR)]; }
-function isVisibleEl(el) { return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length); }
-function dialogFocusables(root) { return [...root.querySelectorAll(FOCUSABLE)].filter(el => !el.closest('[hidden], .hidden') && isVisibleEl(el)); }
-function setAppInert(on) {
-  const app = document.querySelector('.app'); if (!app) return;
-  app.inert = on;
-  if (on) app.setAttribute('aria-hidden', 'true'); else app.removeAttribute('aria-hidden');
-}
-function onDialogOpened(d) {
-  d.inert = false;
-  _dialogStack = _dialogStack.filter(x => x !== d); _dialogStack.push(d);
-  if (!_dialogOpeners.has(d)) _dialogOpeners.set(d, document.activeElement);
-  setAppInert(true);
-  setTimeout(() => {                                   // laisse l'animation d'ouverture démarrer
-    if (!d.classList.contains('open')) return;
-    const inner = d.querySelector('[autofocus]') || dialogFocusables(d).find(el => !el.matches('.modal-x, .breathing-close')) || dialogFocusables(d)[0];
-    (inner || d).focus({ preventScroll: true });
-  }, 60);
-}
-function onDialogClosed(d) {
-  d.inert = true;
-  _dialogStack = _dialogStack.filter(x => x !== d);
-  if (_dialogStack.length === 0) setAppInert(false);
-  const op = _dialogOpeners.get(d); _dialogOpeners.delete(d);
-  if (_dialogStack.length === 0 && op && document.contains(op) && typeof op.focus === 'function' && !op.disabled) op.focus({ preventScroll: true });
-}
-function closeTopDialog() {
-  const top = _dialogStack[_dialogStack.length - 1]; if (!top) return false;
-  const btn = top.querySelector('.modal-x, .breathing-close');
-  (btn || top).click();                                // même chemin que le bouton ✕ ou le clic sur le fond
-  return true;
-}
-function setupDialogs() {
-  let n = 0;
-  allDialogs().forEach(d => {
-    const innerDialog = d.querySelector('[role="dialog"]');
-    if (!innerDialog && !d.getAttribute('role')) {
-      d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
-      const title = d.querySelector('.modal-title, .mood-sheet-title, .breathing-title');
-      if (title) { if (!title.id) title.id = 'dlgTitle' + (++n); d.setAttribute('aria-labelledby', title.id); }
-    }
-    if (!d.hasAttribute('tabindex')) d.setAttribute('tabindex', '-1');
-    d.querySelectorAll('.modal-x:not([aria-label]), .breathing-close:not([aria-label])').forEach(b => b.setAttribute('aria-label', 'Fermer'));
-    d.inert = !d.classList.contains('open');
-  });
-  const toast = document.getElementById('toast');
-  if (toast && !toast.getAttribute('role')) { toast.setAttribute('role', 'status'); toast.setAttribute('aria-live', 'polite'); }
-  const mo = new MutationObserver(muts => muts.forEach(m => {
-    const d = m.target, was = !!(m.oldValue && /(^|\s)open(\s|$)/.test(m.oldValue)), is = d.classList.contains('open');
-    if (is && !was) onDialogOpened(d); else if (!is && was) onDialogClosed(d);
-  }));
-  allDialogs().forEach(d => mo.observe(d, { attributes: true, attributeFilter: ['class'], attributeOldValue: true }));
-  document.addEventListener('keydown', e => {
-    const top = _dialogStack[_dialogStack.length - 1]; if (!top) return;
-    if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); closeTopDialog(); return; }
-    if (e.key !== 'Tab') return;
-    const f = dialogFocusables(top);
-    if (!f.length) { e.preventDefault(); top.focus(); return; }
-    const first = f[0], last = f[f.length - 1], a = document.activeElement;
-    if (!top.contains(a)) { e.preventDefault(); first.focus(); }
-    else if (e.shiftKey && (a === first || a === top)) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
-  });
-}
+const DIALOG_SELECTOR=".modal-overlay, .breathing-overlay";
+const FOCUSABLE='a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+let _dialogStack=[];
+const _dialogOpeners=new Map;
+function allDialogs(){return[...document.querySelectorAll(DIALOG_SELECTOR)]}
+function isVisibleEl(t){return!!(t.offsetWidth||t.offsetHeight||t.getClientRects().length)}
+function dialogFocusables(i){return[...i.querySelectorAll(FOCUSABLE)].filter(e=>!e.closest("[hidden], .hidden")&&isVisibleEl(e))}
+function setAppInert(t){const e=document.querySelector(".app");e&&(e.inert=t,t?e.setAttribute("aria-hidden","true"):e.removeAttribute("aria-hidden"))}
+function onDialogOpened(e){e.inert=!1,_dialogStack=_dialogStack.filter(t=>t!==e),_dialogStack.push(e),_dialogOpeners.has(e)||_dialogOpeners.set(e,document.activeElement),setAppInert(!0),setTimeout(()=>{if(!e.classList.contains("open"))return;(e.querySelector("[autofocus]")||dialogFocusables(e).find(o=>!o.matches(".modal-x, .breathing-close"))||dialogFocusables(e)[0]||e).focus({preventScroll:!0})},60)}
+function onDialogClosed(t){t.inert=!0,_dialogStack=_dialogStack.filter(o=>o!==t),_dialogStack.length===0&&setAppInert(!1);const e=_dialogOpeners.get(t);_dialogOpeners.delete(t),_dialogStack.length===0&&e&&document.contains(e)&&typeof e.focus=="function"&&!e.disabled&&e.focus({preventScroll:!0})}
+function closeTopDialog(){const t=_dialogStack[_dialogStack.length-1];return t?((t.querySelector(".modal-x, .breathing-close")||t).click(),!0):!1}
+function setupDialogs(){let s=0;allDialogs().forEach(t=>{if(!t.querySelector('[role="dialog"]')&&!t.getAttribute("role")){t.setAttribute("role","dialog"),t.setAttribute("aria-modal","true");const e=t.querySelector(".modal-title, .mood-sheet-title, .breathing-title");e&&(e.id||(e.id="dlgTitle"+ ++s),t.setAttribute("aria-labelledby",e.id))}t.hasAttribute("tabindex")||t.setAttribute("tabindex","-1"),t.querySelectorAll(".modal-x:not([aria-label]), .breathing-close:not([aria-label])").forEach(e=>e.setAttribute("aria-label","Fermer")),t.inert=!t.classList.contains("open")});const o=document.getElementById("toast");o&&!o.getAttribute("role")&&(o.setAttribute("role","status"),o.setAttribute("aria-live","polite"));const n=new MutationObserver(t=>t.forEach(i=>{const e=i.target,l=!!(i.oldValue&&/(^|\s)open(\s|$)/.test(i.oldValue)),a=e.classList.contains("open");a&&!l?onDialogOpened(e):!a&&l&&onDialogClosed(e)}));allDialogs().forEach(t=>n.observe(t,{attributes:!0,attributeFilter:["class"],attributeOldValue:!0})),document.addEventListener("keydown",t=>{const i=_dialogStack[_dialogStack.length-1];if(!i)return;if(t.key==="Escape"&&!t.defaultPrevented){t.preventDefault(),closeTopDialog();return}if(t.key!=="Tab")return;const e=dialogFocusables(i);if(!e.length){t.preventDefault(),i.focus();return}const l=e[0],a=e[e.length-1],r=document.activeElement;i.contains(r)?t.shiftKey&&(r===l||r===i)?(t.preventDefault(),a.focus()):!t.shiftKey&&r===a&&(t.preventDefault(),l.focus()):(t.preventDefault(),l.focus())})}

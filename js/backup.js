@@ -1,303 +1,68 @@
-/* HabitsTracker · Sauvegarde : export / import, stockage persistant, rappel de sauvegarde
- * Script classique : il partage la portée globale avec les autres fichiers de js/ (ordre de chargement : voir index.html). */
+const APP_VERSION="3.5.0";
+const BACKUP_STALE_DAYS=14;
+const IMPORT_MAX_BYTES=15728640;
+const HABIT_TYPES=["good","bad","drink","counter","weekly","times"];
+const THEME_IDS=["light","dark","system"];
+const PAUSE_REASON_IDS=["sick","trip","tired","work","party","other"];
+const CHAL_STATUSES=["active","won","failed","abandoned","void"];
+const isDateKey=t=>typeof t=="string"&&/^\d{4}-\d{2}-\d{2}$/.test(t)&&!isNaN(Date.parse(t+"T00:00:00"));
+const isHex=t=>typeof t=="string"&&/^#[0-9a-fA-F]{6}$/.test(t);
+const clipStr=(t,c)=>typeof t=="string"?t.slice(0,c):"";
+const nOr=(i,n)=>Number.isFinite(i)?i:n;
+const isPlainObj=r=>!!r&&typeof r=="object"&&!Array.isArray(r);
+function sanitizeHabitDef(e){if(!isPlainObj(e)||typeof e.id!="string"||!/^[A-Za-z0-9_-]{1,40}$/.test(e.id))return null;const n=clipStr(e.name,30).trim();if(!n||!HABIT_TYPES.includes(e.type))return null;const t={id:e.id,name:n,type:e.type,emoji:clipStr(e.emoji,8)||"⭐",color:isHex(e.color)?e.color:"#8EA2FF",freq:clipStr(e.freq,40)||"Tous les jours",weekdayOnly:!!e.weekdayOnly,optional:!!e.optional};if(Array.isArray(e.activeDays)){const r=[...new Set(e.activeDays.filter(i=>Number.isInteger(i)&&i>=0&&i<=6))];r.length&&(t.activeDays=r)}if(e.type==="drink"||e.type==="counter"){let r=nOr(e.goal,NaN),i=nOr(e.step,NaN),a=nOr(e.max,NaN);r>0&&i>0&&a>0&&a>=r||(r=10,i=1,a=20),t.goal=r,t.step=i,t.max=a,t.unit=clipStr(e.unit,8)}if(e.type==="times"&&(t.target=Math.max(1,Math.min(6,Math.floor(nOr(e.target,3))||3))),e.type==="bad"&&Array.isArray(e.levels)){const r=e.levels.filter(i=>typeof i=="string"&&i.trim()).map(i=>i.trim().slice(0,10)).slice(0,8);r.length&&(t.levels=r)}if(e.custom&&(t.custom=!0),isDateKey(e.since)&&(t.since=e.since),e.archived&&(t.archived=!0,isDateKey(e.archivedOn)&&(t.archivedOn=e.archivedOn)),Array.isArray(e.gaps)){const r=e.gaps.filter(i=>isPlainObj(i)&&isDateKey(i.from)&&(i.to===void 0||isDateKey(i.to))).map(i=>i.to?{from:i.from,to:i.to}:{from:i.from}).slice(0,200);r.length&&(t.gaps=r)}return t}
+function sanitizeLogs(t){const i={};return isPlainObj(t)&&Object.keys(t).forEach(n=>{if(!isDateKey(n))return;const e=t[n];(e==="done"||e==="fail"||typeof e=="number"&&Number.isFinite(e)&&e>=0&&e<=1e6)&&(i[n]=e)}),i}
+function mapDates(e,f){const n={};return isPlainObj(e)&&Object.keys(e).forEach(t=>{if(isDateKey(t)){const i=f(e[t]);i!==void 0&&(n[t]=i)}}),n}
+function normalizeImported(i){if(!isPlainObj(i))return{ok:!1,error:"Format non reconnu."};if(!isPlainObj(i.habits))return{ok:!1,error:"Ce fichier ne ressemble pas à une sauvegarde HabitsTracker."};const t={};t.createdAt=isDateKey(i.createdAt)?i.createdAt:today(),t.xp=Math.max(0,Math.floor(nOr(i.xp,0)));const a=isPlainObj(i.profile)?i.profile:{};t.profile={name:clipStr(a.name,40),soundEnabled:a.soundEnabled!==!1,notifsEnabled:!!a.notifsEnabled,zenMode:!!a.zenMode,darkMode:!!a.darkMode,themeMode:THEME_IDS.includes(a.themeMode)?a.themeMode:a.darkMode===!0?"dark":"light",pauseQuota:Math.min(10,Math.max(0,Math.floor(nOr(a.pauseQuota,3)))),dayStartHour:Math.min(6,Math.max(0,Math.floor(nOr(a.dayStartHour,0)))),weeklyReview:a.weeklyReview!==!1,moodFeelings:mapDates(a.moodFeelings,e=>typeof e=="string"?e.slice(0,200):void 0)},typeof a.lastBackup=="string"&&!isNaN(Date.parse(a.lastBackup))&&(t.profile.lastBackup=a.lastBackup),isDateKey(a.backupSnooze)&&(t.profile.backupSnooze=a.backupSnooze),isDateKey(a.reviewedWeek)&&(t.profile.reviewedWeek=a.reviewedWeek);let r=Array.isArray(i.habitDefs)?i.habitDefs.map(sanitizeHabitDef).filter(Boolean):JSON.parse(JSON.stringify(DEFAULT_HABITS));const o=new Set;r=r.filter(e=>!o.has(e.id)&&o.add(e.id)).slice(0,100),t.habitDefs=r,t.habits={},r.forEach(e=>{const n=isPlainObj(i.habits[e.id])?i.habits[e.id]:{},s={logs:sanitizeLogs(n.logs)};if(isPlainObj(n.vals)){const l=mapDates(n.vals,p=>typeof p=="string"?p.slice(0,10):void 0);Object.keys(l).length&&(s.vals=l)}t.habits[e.id]=s}),t.moods=mapDates(i.moods,e=>Number.isInteger(e)&&e>=1&&e<=5?e:void 0),t.journal=mapDates(i.journal,e=>typeof e=="string"&&e.trim()?e.slice(0,600):void 0),t.pauses=mapDates(i.pauses,e=>({reason:isPlainObj(e)&&PAUSE_REASON_IDS.includes(e.reason)?e.reason:"other"})),t.xpWeek=mapDates(i.xpWeek,e=>Number.isFinite(e)&&e>=0&&e<=1e7?Math.floor(e):void 0),t.meditation=mapDates(i.meditation,e=>Number.isFinite(e)&&e>=0&&e<=1440?e:void 0),t.sleepLog=mapDates(i.sleepLog,e=>isPlainObj(e)&&Number.isFinite(e.hours)?{hours:Math.min(24,Math.max(0,e.hours)),minutes:Math.min(59,Math.max(0,nOr(e.minutes,0))),bedtime:clipStr(e.bedtime,5),wakeTime:clipStr(e.wakeTime,5)}:void 0),t.reminders=(Array.isArray(i.reminders)?i.reminders:JSON.parse(JSON.stringify(DEFAULT_REMINDERS))).filter(isPlainObj).slice(0,50).map((e,n)=>({id:/^[A-Za-z0-9_-]{1,40}$/.test(e.id)?e.id:"r_imp"+n,title:clipStr(e.title,40)||"Rappel",body:clipStr(e.body,80),hour:Math.min(23,Math.max(0,Math.floor(nOr(e.hour,9)))),minute:Math.min(59,Math.max(0,Math.floor(nOr(e.minute,0)))),days:[...new Set((Array.isArray(e.days)?e.days:[]).filter(s=>Number.isInteger(s)&&s>=0&&s<=6))],habitId:typeof e.habitId=="string"&&o.has(e.habitId)?e.habitId:"",enabled:e.enabled!==!1}));const d=new Set;t.reminders=t.reminders.filter(e=>!d.has(e.id)&&d.add(e.id)),t.challenges=(Array.isArray(i.challenges)?i.challenges:[]).filter(e=>isPlainObj(e)&&CHAL_STATUSES.includes(e.status)&&/^[A-Za-z0-9_-]{1,40}$/.test(e.id)&&typeof e.habitId=="string"&&isDateKey(e.start)&&Number.isInteger(e.days)&&e.days>=3&&e.days<=365).slice(0,200).map(e=>({id:e.id,habitId:e.habitId,title:clipStr(e.title,50)||"Défi",emoji:clipStr(e.emoji,8)||"🎯",color:isHex(e.color)?e.color:"#8EA2FF",days:e.days,required:e.required==="all"?"all":Math.max(1,Math.floor(nOr(e.required,e.days))),start:e.start,status:e.status,reward:Math.max(0,Math.floor(nOr(e.reward,0))),...isDateKey(e.endedOn)?{endedOn:e.endedOn}:{}})),t.seasonXp={},isPlainObj(i.seasonXp)&&Object.keys(i.seasonXp).forEach(e=>{/^(winter|spring|summer|autumn)-\d{4}$/.test(e)&&Number.isFinite(i.seasonXp[e])&&i.seasonXp[e]>=0&&(t.seasonXp[e]=Math.floor(i.seasonXp[e]))});const m=new Set(ACHIEVEMENTS.map(e=>e.id));return t.unlockedAchievements=(Array.isArray(i.unlockedAchievements)?i.unlockedAchievements:[]).filter(e=>m.has(e)),t.perfectDaysClaimed=(Array.isArray(i.perfectDaysClaimed)?i.perfectDaysClaimed:[]).filter(isDateKey),t.penaltiesApplied=(Array.isArray(i.penaltiesApplied)?i.penaltiesApplied:[]).filter(isDateKey),isDateKey(i.meditationXpDay)&&(t.meditationXpDay=i.meditationXpDay),{ok:!0,db:t}}
+function daysSince(e){const t=new Date;t.setHours(0,0,0,0);const n=new Date(e);return isNaN(n)?null:(n.setHours(0,0,0,0),Math.round((t-n)/864e5))}
+function agoLabel(r){return r<=0?"aujourd’hui":r===1?"hier":r<31?`il y a ${r} jours`:`il y a ${Math.floor(r/30)} mois`}
+function lastBackupLabel(){const a=DB.profile.lastBackup?daysSince(DB.profile.lastBackup):null;return a==null?"Jamais sauvegardé":`Dernière sauvegarde : ${agoLabel(a)}`}
+function backupStale(){const n=DB.profile.lastBackup?daysSince(DB.profile.lastBackup):null;if(n!=null)return n>=BACKUP_STALE_DAYS;const a=daysSince(parseDate(DB.createdAt));return a!=null&&a>=7}
+function importSummary(e,t){const n=e.habitDefs.filter(s=>!s.archived).length,a=e.habitDefs.length-n,i=[`• ${n} habitude${n>1?"s":""}${a?` (+ ${a} archivée${a>1?"s":""})`:""}`,`• ${fmtNum(e.xp)} XP · niveau ${calcLevel(e.xp)}`,`• ${Object.keys(e.moods).length} humeur${Object.keys(e.moods).length>1?"s":""}, ${Object.keys(e.journal).length} note${Object.keys(e.journal).length>1?"s":""}`,`• utilisée depuis le ${fmtDay(e.createdAt)} ${e.createdAt.slice(0,4)}`];return typeof t=="string"&&!isNaN(Date.parse(t))&&i.unshift(`Sauvegarde du ${new Date(t).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})}`),i.join(`
+`)}
+async function exportData(){const t=new Date().toISOString(),o=JSON.parse(JSON.stringify(DB));o.profile.lastBackup=t;const n=JSON.stringify({app:"HabitsTracker",schema:STORE_KEY,appVersion:APP_VERSION,exportedAt:t,data:o},null,2),r=`habitstracker-${today()}.json`;let i=!1;try{const e=new File([n],r,{type:"application/json"});window.matchMedia&&matchMedia("(pointer: coarse)").matches&&navigator.canShare&&navigator.canShare({files:[e]})&&(await navigator.share({files:[e],title:"Sauvegarde HabitsTracker"}),i=!0)}catch(e){if(e&&e.name==="AbortError")return}if(!i){const e=URL.createObjectURL(new Blob([n],{type:"application/json"})),a=document.createElement("a");a.href=e,a.download=r,document.body.appendChild(a),a.click(),a.remove(),setTimeout(()=>URL.revokeObjectURL(e),4e3)}DB.profile.lastBackup=t,delete DB.profile.backupSnooze,saveData(),showToast("Sauvegarde exportée",2600,"star"),(activePage==="account"||activePage==="home")&&renderActivePage()}
+function openImportPicker(){const e=document.getElementById("importFile");e&&e.click()}
+function onImportFile(r){const t=r.target.files&&r.target.files[0];if(r.target.value="",!t)return;if(t.size>IMPORT_MAX_BYTES){showToast("Fichier trop volumineux (15 Mo max)",3500,"alert");return}const e=new FileReader;e.onload=()=>handleImportText(String(e.result)),e.onerror=()=>showToast("Impossible de lire le fichier",3e3,"alert"),e.readAsText(t)}
+function handleImportText(a){let e;try{e=JSON.parse(a)}catch{showToast("Fichier illisible : ce n’est pas du JSON valide",3800,"alert");return}const o=isPlainObj(e)&&isPlainObj(e.data)?e.data:e,t=normalizeImported(o);if(!t.ok){showToast(t.error,4e3,"alert");return}const s=importSummary(t.db,e&&e.exportedAt);if(confirm(`Remplacer tes données actuelles par cette sauvegarde ?
 
-/* ═══════════ Sauvegarde : export / import ═══════════ */
-const APP_VERSION = '3.5.0';
-const BACKUP_STALE_DAYS = 14;
-const IMPORT_MAX_BYTES = 15 * 1024 * 1024;
-const HABIT_TYPES = ['good', 'bad', 'drink', 'counter', 'weekly', 'times'];
-const THEME_IDS = ['light', 'dark', 'system'];
-const PAUSE_REASON_IDS = ['sick', 'trip', 'tired', 'work', 'party', 'other'];
-const CHAL_STATUSES = ['active', 'won', 'failed', 'abandoned', 'void'];
+${s}
 
-const isDateKey = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00'));
-const isHex = s => typeof s === 'string' && /^#[0-9a-fA-F]{6}$/.test(s);
-const clipStr = (v, max) => typeof v === 'string' ? v.slice(0, max) : '';
-const nOr = (v, d) => Number.isFinite(v) ? v : d;
-const isPlainObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
+Tes données actuelles sont conservées : tu pourras annuler l’import.`)){try{localStorage.setItem(BAK_KEY,localStorage.getItem(STORE_KEY)||""),localStorage.setItem(BAK_KEY+".at",new Date().toISOString())}catch{if(!confirm(`Impossible de créer un point de restauration (stockage plein).
 
-/* ── Nettoyage strict d'une sauvegarde importée : liste blanche de champs et de formats ── */
-function sanitizeHabitDef(h) {
-  if (!isPlainObj(h) || typeof h.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(h.id)) return null;
-  const name = clipStr(h.name, 30).trim();
-  if (!name || !HABIT_TYPES.includes(h.type)) return null;
-  const o = { id: h.id, name, type: h.type, emoji: clipStr(h.emoji, 8) || '⭐', color: isHex(h.color) ? h.color : '#8EA2FF',
-    freq: clipStr(h.freq, 40) || 'Tous les jours', weekdayOnly: !!h.weekdayOnly, optional: !!h.optional };
-  if (Array.isArray(h.activeDays)) {
-    const d = [...new Set(h.activeDays.filter(x => Number.isInteger(x) && x >= 0 && x <= 6))];
-    if (d.length) o.activeDays = d;
-  }
-  if (h.type === 'drink' || h.type === 'counter') {
-    let goal = nOr(h.goal, NaN), step = nOr(h.step, NaN), max = nOr(h.max, NaN);
-    if (!(goal > 0 && step > 0 && max > 0 && max >= goal)) { goal = 10; step = 1; max = 20; }
-    o.goal = goal; o.step = step; o.max = max; o.unit = clipStr(h.unit, 8);
-  }
-  if (h.type === 'times') o.target = Math.max(1, Math.min(6, Math.floor(nOr(h.target, 3)) || 3));
-  if (h.type === 'bad' && Array.isArray(h.levels)) {
-    const lv = h.levels.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim().slice(0, 10)).slice(0, 8);
-    if (lv.length) o.levels = lv;
-  }
-  if (h.custom) o.custom = true;
-  if (isDateKey(h.since)) o.since = h.since;
-  if (h.archived) { o.archived = true; if (isDateKey(h.archivedOn)) o.archivedOn = h.archivedOn; }
-  if (Array.isArray(h.gaps)) {
-    const g = h.gaps.filter(x => isPlainObj(x) && isDateKey(x.from) && (x.to === undefined || isDateKey(x.to)))
-      .map(x => x.to ? { from: x.from, to: x.to } : { from: x.from }).slice(0, 200);
-    if (g.length) o.gaps = g;
-  }
-  return o;
-}
-function sanitizeLogs(src) {
-  const logs = {};
-  if (!isPlainObj(src)) return logs;
-  Object.keys(src).forEach(k => {
-    if (!isDateKey(k)) return;
-    const v = src[k];
-    if (v === 'done' || v === 'fail') logs[k] = v;
-    else if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e6) logs[k] = v;
-  });
-  return logs;
-}
-function mapDates(src, fn) {
-  const out = {};
-  if (!isPlainObj(src)) return out;
-  Object.keys(src).forEach(k => { if (isDateKey(k)) { const v = fn(src[k]); if (v !== undefined) out[k] = v; } });
-  return out;
-}
-function normalizeImported(raw) {
-  if (!isPlainObj(raw)) return { ok: false, error: 'Format non reconnu.' };
-  if (!isPlainObj(raw.habits)) return { ok: false, error: 'Ce fichier ne ressemble pas à une sauvegarde HabitsTracker.' };
-  const db = {};
-  db.createdAt = isDateKey(raw.createdAt) ? raw.createdAt : today();
-  db.xp = Math.max(0, Math.floor(nOr(raw.xp, 0)));
+Importer quand même ?`))return}try{localStorage.setItem(STORE_KEY,JSON.stringify(t.db))}catch{showToast("Import impossible : stockage plein",4e3,"alert");return}sessionStorage.setItem("ht-flash","import"),location.reload()}}
+function hasRestorePoint(){try{return!!localStorage.getItem(BAK_KEY)}catch{return!1}}
+function restorePointLabel(){try{const t=localStorage.getItem(BAK_KEY+".at");if(t)return new Date(t).toLocaleDateString("fr-FR",{day:"numeric",month:"long"})}catch{}return""}
+function restoreBackup(){let t=null;try{t=localStorage.getItem(BAK_KEY)}catch{}if(!t){showToast("Aucun point de restauration",2800,"alert");return}try{localStorage.setItem(STORE_KEY,t),localStorage.removeItem(BAK_KEY),localStorage.removeItem(BAK_KEY+".at")}catch{showToast("Restauration impossible",3e3,"alert");return}sessionStorage.setItem("ht-flash","restore"),location.reload()}
+function confirmRestore(){confirm(`Revenir aux données d’avant le dernier import${restorePointLabel()?" ("+restorePointLabel()+")":""} ?
 
-  const p = isPlainObj(raw.profile) ? raw.profile : {};
-  db.profile = { name: clipStr(p.name, 40), soundEnabled: p.soundEnabled !== false, notifsEnabled: !!p.notifsEnabled, zenMode: !!p.zenMode,
-    darkMode: !!p.darkMode, themeMode: THEME_IDS.includes(p.themeMode) ? p.themeMode : (p.darkMode === true ? 'dark' : 'light'),
-    pauseQuota: Math.min(10, Math.max(0, Math.floor(nOr(p.pauseQuota, 3)))),
-    dayStartHour: Math.min(6, Math.max(0, Math.floor(nOr(p.dayStartHour, 0)))), weeklyReview: p.weeklyReview !== false,
-    moodFeelings: mapDates(p.moodFeelings, v => typeof v === 'string' ? v.slice(0, 200) : undefined) };
-  if (typeof p.lastBackup === 'string' && !isNaN(Date.parse(p.lastBackup))) db.profile.lastBackup = p.lastBackup;
-  if (isDateKey(p.backupSnooze)) db.profile.backupSnooze = p.backupSnooze;
-  if (isDateKey(p.reviewedWeek)) db.profile.reviewedWeek = p.reviewedWeek;
-
-  // Habitudes (les anciennes sauvegardes sans définitions repartent des habitudes par défaut)
-  let defs = Array.isArray(raw.habitDefs) ? raw.habitDefs.map(sanitizeHabitDef).filter(Boolean) : JSON.parse(JSON.stringify(DEFAULT_HABITS));
-  const seen = new Set(); defs = defs.filter(d => !seen.has(d.id) && seen.add(d.id)).slice(0, 100);
-  db.habitDefs = defs;
-  db.habits = {};
-  defs.forEach(d => {
-    const src = isPlainObj(raw.habits[d.id]) ? raw.habits[d.id] : {};
-    const e = { logs: sanitizeLogs(src.logs) };
-    if (isPlainObj(src.vals)) { const vals = mapDates(src.vals, v => typeof v === 'string' ? v.slice(0, 10) : undefined); if (Object.keys(vals).length) e.vals = vals; }
-    db.habits[d.id] = e;
-  });
-
-  db.moods = mapDates(raw.moods, v => Number.isInteger(v) && v >= 1 && v <= 5 ? v : undefined);
-  db.journal = mapDates(raw.journal, v => typeof v === 'string' && v.trim() ? v.slice(0, 600) : undefined);
-  db.pauses = mapDates(raw.pauses, v => ({ reason: isPlainObj(v) && PAUSE_REASON_IDS.includes(v.reason) ? v.reason : 'other' }));
-  db.xpWeek = mapDates(raw.xpWeek, v => Number.isFinite(v) && v >= 0 && v <= 1e7 ? Math.floor(v) : undefined);
-  db.meditation = mapDates(raw.meditation, v => Number.isFinite(v) && v >= 0 && v <= 1440 ? v : undefined);
-  db.sleepLog = mapDates(raw.sleepLog, v => isPlainObj(v) && Number.isFinite(v.hours)
-    ? { hours: Math.min(24, Math.max(0, v.hours)), minutes: Math.min(59, Math.max(0, nOr(v.minutes, 0))), bedtime: clipStr(v.bedtime, 5), wakeTime: clipStr(v.wakeTime, 5) } : undefined);
-
-  db.reminders = (Array.isArray(raw.reminders) ? raw.reminders : JSON.parse(JSON.stringify(DEFAULT_REMINDERS))).filter(isPlainObj).slice(0, 50).map((r, i) => ({
-    id: /^[A-Za-z0-9_-]{1,40}$/.test(r.id) ? r.id : 'r_imp' + i, title: clipStr(r.title, 40) || 'Rappel', body: clipStr(r.body, 80),
-    hour: Math.min(23, Math.max(0, Math.floor(nOr(r.hour, 9)))), minute: Math.min(59, Math.max(0, Math.floor(nOr(r.minute, 0)))),
-    days: [...new Set((Array.isArray(r.days) ? r.days : []).filter(x => Number.isInteger(x) && x >= 0 && x <= 6))],
-    habitId: typeof r.habitId === 'string' && seen.has(r.habitId) ? r.habitId : '', enabled: r.enabled !== false }));
-  const rseen = new Set(); db.reminders = db.reminders.filter(r => !rseen.has(r.id) && rseen.add(r.id));
-
-  db.challenges = (Array.isArray(raw.challenges) ? raw.challenges : []).filter(c => isPlainObj(c) && CHAL_STATUSES.includes(c.status)
-    && /^[A-Za-z0-9_-]{1,40}$/.test(c.id) && typeof c.habitId === 'string' && isDateKey(c.start)
-    && Number.isInteger(c.days) && c.days >= 3 && c.days <= 365).slice(0, 200).map(c => ({
-    id: c.id, habitId: c.habitId, title: clipStr(c.title, 50) || 'Défi', emoji: clipStr(c.emoji, 8) || '🎯', color: isHex(c.color) ? c.color : '#8EA2FF',
-    days: c.days, required: c.required === 'all' ? 'all' : Math.max(1, Math.floor(nOr(c.required, c.days))), start: c.start,
-    status: c.status, reward: Math.max(0, Math.floor(nOr(c.reward, 0))), ...(isDateKey(c.endedOn) ? { endedOn: c.endedOn } : {}) }));
-
-  db.seasonXp = {};
-  if (isPlainObj(raw.seasonXp)) Object.keys(raw.seasonXp).forEach(k => {
-    if (/^(winter|spring|summer|autumn)-\d{4}$/.test(k) && Number.isFinite(raw.seasonXp[k]) && raw.seasonXp[k] >= 0) db.seasonXp[k] = Math.floor(raw.seasonXp[k]);
-  });
-  const known = new Set(ACHIEVEMENTS.map(a => a.id));
-  db.unlockedAchievements = (Array.isArray(raw.unlockedAchievements) ? raw.unlockedAchievements : []).filter(x => known.has(x));
-  db.perfectDaysClaimed = (Array.isArray(raw.perfectDaysClaimed) ? raw.perfectDaysClaimed : []).filter(isDateKey);
-  db.penaltiesApplied = (Array.isArray(raw.penaltiesApplied) ? raw.penaltiesApplied : []).filter(isDateKey);
-  if (isDateKey(raw.meditationXpDay)) db.meditationXpDay = raw.meditationXpDay;
-  return { ok: true, db };
-}
-
-/* ── Libellés ── */
-function daysSince(date) {
-  const a = new Date(); a.setHours(0, 0, 0, 0);
-  const b = new Date(date); if (isNaN(b)) return null; b.setHours(0, 0, 0, 0);
-  return Math.round((a - b) / 86400000);
-}
-function agoLabel(n) {
-  if (n <= 0) return 'aujourd’hui';
-  if (n === 1) return 'hier';
-  if (n < 31) return `il y a ${n} jours`;
-  const m = Math.floor(n / 30); return `il y a ${m} mois`;
-}
-function lastBackupLabel() {
-  const n = DB.profile.lastBackup ? daysSince(DB.profile.lastBackup) : null;
-  return n == null ? 'Jamais sauvegardé' : `Dernière sauvegarde : ${agoLabel(n)}`;
-}
-function backupStale() {
-  const n = DB.profile.lastBackup ? daysSince(DB.profile.lastBackup) : null;
-  if (n != null) return n >= BACKUP_STALE_DAYS;
-  const c = daysSince(parseDate(DB.createdAt));
-  return c != null && c >= 7;
-}
-function importSummary(db, exportedAt) {
-  const live = db.habitDefs.filter(h => !h.archived).length, arch = db.habitDefs.length - live;
-  const lines = [
-    `• ${live} habitude${live > 1 ? 's' : ''}${arch ? ` (+ ${arch} archivée${arch > 1 ? 's' : ''})` : ''}`,
-    `• ${fmtNum(db.xp)} XP · niveau ${calcLevel(db.xp)}`,
-    `• ${Object.keys(db.moods).length} humeur${Object.keys(db.moods).length > 1 ? 's' : ''}, ${Object.keys(db.journal).length} note${Object.keys(db.journal).length > 1 ? 's' : ''}`,
-    `• utilisée depuis le ${fmtDay(db.createdAt)} ${db.createdAt.slice(0, 4)}`,
-  ];
-  if (typeof exportedAt === 'string' && !isNaN(Date.parse(exportedAt))) lines.unshift(`Sauvegarde du ${new Date(exportedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`);
-  return lines.join('\n');
-}
-
-/* ── Export ── */
-async function exportData() {
-  const now = new Date().toISOString();
-  const snapshot = JSON.parse(JSON.stringify(DB)); snapshot.profile.lastBackup = now;
-  const payload = JSON.stringify({ app: 'HabitsTracker', schema: STORE_KEY, appVersion: APP_VERSION, exportedAt: now, data: snapshot }, null, 2);
-  const name = `habitstracker-${today()}.json`;
-  let done = false;
-  try {
-    const file = new File([payload], name, { type: 'application/json' });
-    if (window.matchMedia && matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Sauvegarde HabitsTracker' });
-      done = true;
-    }
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;   // l'utilisateur a fermé la feuille de partage
-  }
-  if (!done) {
-    const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
-    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  }
-  DB.profile.lastBackup = now; delete DB.profile.backupSnooze; saveData();
-  showToast('Sauvegarde exportée', 2600, 'star');
-  if (activePage === 'account' || activePage === 'home') renderActivePage();
-}
-
-/* ── Import ── */
-function openImportPicker() { const i = document.getElementById('importFile'); if (i) i.click(); }
-function onImportFile(ev) {
-  const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
-  if (!f) return;
-  if (f.size > IMPORT_MAX_BYTES) { showToast('Fichier trop volumineux (15 Mo max)', 3500, 'alert'); return; }
-  const r = new FileReader();
-  r.onload = () => handleImportText(String(r.result));
-  r.onerror = () => showToast('Impossible de lire le fichier', 3000, 'alert');
-  r.readAsText(f);
-}
-function handleImportText(text) {
-  let obj;
-  try { obj = JSON.parse(text); } catch (e) { showToast('Fichier illisible : ce n’est pas du JSON valide', 3800, 'alert'); return; }
-  const raw = isPlainObj(obj) && isPlainObj(obj.data) ? obj.data : obj;   // accepte l'enveloppe d'export ou une base brute
-  const res = normalizeImported(raw);
-  if (!res.ok) { showToast(res.error, 4000, 'alert'); return; }
-  const summary = importSummary(res.db, obj && obj.exportedAt);
-  if (!confirm(`Remplacer tes données actuelles par cette sauvegarde ?\n\n${summary}\n\nTes données actuelles sont conservées : tu pourras annuler l’import.`)) return;
-  try {
-    localStorage.setItem(BAK_KEY, localStorage.getItem(STORE_KEY) || '');
-    localStorage.setItem(BAK_KEY + '.at', new Date().toISOString());
-  } catch (e) {
-    if (!confirm('Impossible de créer un point de restauration (stockage plein).\n\nImporter quand même ?')) return;
-  }
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(res.db)); }
-  catch (e) { showToast('Import impossible : stockage plein', 4000, 'alert'); return; }
-  sessionStorage.setItem('ht-flash', 'import');
-  location.reload();
-}
-function hasRestorePoint() { try { return !!localStorage.getItem(BAK_KEY); } catch (e) { return false; } }
-function restorePointLabel() {
-  try { const at = localStorage.getItem(BAK_KEY + '.at'); if (at) return new Date(at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch (e) {}
-  return '';
-}
-function restoreBackup() {
-  let b = null; try { b = localStorage.getItem(BAK_KEY); } catch (e) {}
-  if (!b) { showToast('Aucun point de restauration', 2800, 'alert'); return; }
-  try { localStorage.setItem(STORE_KEY, b); localStorage.removeItem(BAK_KEY); localStorage.removeItem(BAK_KEY + '.at'); }
-  catch (e) { showToast('Restauration impossible', 3000, 'alert'); return; }
-  sessionStorage.setItem('ht-flash', 'restore');
-  location.reload();
-}
-function confirmRestore() {
-  if (confirm(`Revenir aux données d’avant le dernier import${restorePointLabel() ? ' (' + restorePointLabel() + ')' : ''} ?\n\nLes données actuelles seront remplacées.`)) restoreBackup();
-}
-function handleFlash() {
-  const f = sessionStorage.getItem('ht-flash'); if (!f) return;
-  sessionStorage.removeItem('ht-flash');
-  if (f === 'import') showUndoToast('Sauvegarde importée', restoreBackup, 12000);
-  else if (f === 'restore') showToast('Données précédentes restaurées', 3200, 'star');
-}
-
-/* ── Stockage persistant ── */
-async function storageInfo() {
-  const info = { supported: !!(navigator.storage && navigator.storage.persist), persisted: null, usage: null };
-  try { if (navigator.storage && navigator.storage.persisted) info.persisted = await navigator.storage.persisted(); } catch (e) {}
-  try { if (navigator.storage && navigator.storage.estimate) { const e = await navigator.storage.estimate(); info.usage = e.usage; } } catch (e) {}
-  return info;
-}
-async function requestPersistence(manual) {
-  if (!(navigator.storage && navigator.storage.persist)) { if (manual) showToast('Non pris en charge par ce navigateur', 3000, 'alert'); return null; }
-  let ok = null;
-  try { ok = (await navigator.storage.persisted()) || (await navigator.storage.persist()); } catch (e) {}
-  if (manual) showToast(ok ? 'Stockage protégé : le navigateur ne l’effacera pas' : 'Le navigateur a refusé (installe l’app pour augmenter tes chances)', 4200, ok ? 'star' : 'alert');
-  if (manual && activePage === 'account') renderAccount();
-  return ok;
-}
-async function refreshStorageInfo() {
-  const el = document.getElementById('storageInfo'); if (!el) return;
-  const i = await storageInfo();
-  const mo = i.usage != null ? ` · ${(i.usage / 1048576).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mo utilisés` : '';
-  const el2 = document.getElementById('storageInfo'); if (!el2) return;
-  el2.textContent = (!i.supported ? 'Non pris en charge' : i.persisted ? 'Protégé ✓ (persistant)' : 'Non garanti : le navigateur peut vider les données') + mo;
-  const btn = document.getElementById('storageBtn'); if (btn) btn.hidden = !i.supported || !!i.persisted;
-}
-
-/* ── Interface ── */
-function backupSectionHtml() {
-  const stale = backupStale();
-  setTimeout(refreshStorageInfo, 0);
-  return `<div>
+Les données actuelles seront remplacées.`)&&restoreBackup()}
+function handleFlash(){const e=sessionStorage.getItem("ht-flash");e&&(sessionStorage.removeItem("ht-flash"),e==="import"?showUndoToast("Sauvegarde importée",restoreBackup,12e3):e==="restore"&&showToast("Données précédentes restaurées",3200,"star"))}
+async function storageInfo(){const a={supported:!!(navigator.storage&&navigator.storage.persist),persisted:null,usage:null};try{navigator.storage&&navigator.storage.persisted&&(a.persisted=await navigator.storage.persisted())}catch{}try{if(navigator.storage&&navigator.storage.estimate){const t=await navigator.storage.estimate();a.usage=t.usage}}catch{}return a}
+async function requestPersistence(a){if(!(navigator.storage&&navigator.storage.persist))return a&&showToast("Non pris en charge par ce navigateur",3e3,"alert"),null;let e=null;try{e=await navigator.storage.persisted()||await navigator.storage.persist()}catch{}return a&&showToast(e?"Stockage protégé : le navigateur ne l’effacera pas":"Le navigateur a refusé (installe l’app pour augmenter tes chances)",4200,e?"star":"alert"),a&&activePage==="account"&&renderAccount(),e}
+async function refreshStorageInfo(){if(!document.getElementById("storageInfo"))return;const e=await storageInfo(),o=e.usage!=null?` · ${(e.usage/1048576).toLocaleString("fr-FR",{maximumFractionDigits:1})} Mo utilisés`:"",t=document.getElementById("storageInfo");if(!t)return;t.textContent=(e.supported?e.persisted?"Protégé ✓ (persistant)":"Non garanti : le navigateur peut vider les données":"Non pris en charge")+o;const n=document.getElementById("storageBtn");n&&(n.hidden=!e.supported||!!e.persisted)}
+function backupSectionHtml(){const e=backupStale();return setTimeout(refreshStorageInfo,0),`<div>
     <div class="account-section-title">Sauvegarde</div>
     <div class="pref-card">
       <div class="pref-row">
-        <div class="pref-info"><span class="pref-icon">💾</span><div><div class="pref-label-text">Exporter mes données</div><div class="pref-hint${stale ? ' warn' : ''}">${lastBackupLabel()}</div></div></div>
+        <div class="pref-info"><span class="pref-icon">💾</span><div><div class="pref-label-text">Exporter mes données</div><div class="pref-hint${e?" warn":""}">${lastBackupLabel()}</div></div></div>
         <button type="button" class="pref-edit" onclick="exportData()">Exporter</button>
       </div>
       <div class="pref-row">
         <div class="pref-info"><span class="pref-icon">📂</span><div><div class="pref-label-text">Importer une sauvegarde</div><div class="pref-hint">Remplace les données actuelles</div></div></div>
         <button type="button" class="pref-edit" onclick="openImportPicker()">Importer</button>
       </div>
-      ${hasRestorePoint() ? `<div class="pref-row">
-        <div class="pref-info"><span class="pref-icon">↩️</span><div><div class="pref-label-text">Annuler le dernier import</div><div class="pref-hint">Point de restauration${restorePointLabel() ? ' du ' + restorePointLabel() : ''}</div></div></div>
+      ${hasRestorePoint()?`<div class="pref-row">
+        <div class="pref-info"><span class="pref-icon">↩️</span><div><div class="pref-label-text">Annuler le dernier import</div><div class="pref-hint">Point de restauration${restorePointLabel()?" du "+restorePointLabel():""}</div></div></div>
         <button type="button" class="pref-edit" onclick="confirmRestore()">Restaurer</button>
-      </div>` : ''}
+      </div>`:""}
       <div class="pref-row">
         <div class="pref-info"><span class="pref-icon">🛡️</span><div><div class="pref-label-text">Stockage protégé</div><div class="pref-hint" id="storageInfo">Vérification…</div></div></div>
         <button type="button" class="pref-edit" id="storageBtn" onclick="requestPersistence(true)" hidden>Protéger</button>
       </div>
     </div>
-  </div>`;
-}
-function renderBackupNudge() {
-  const el = document.getElementById('backupNudge'); if (!el) return;
-  const snooze = DB.profile.backupSnooze;
-  if (!backupStale() || (snooze && snooze > today())) { el.innerHTML = ''; return; }
-  const n = DB.profile.lastBackup ? daysSince(DB.profile.lastBackup) : null;
-  el.innerHTML = `<div class="backup-nudge"><span aria-hidden="true">💾</span>
-    <div class="backup-nudge-txt">${n == null ? 'Tes données ne sont pas sauvegardées' : `Dernière sauvegarde ${agoLabel(n)}`}</div>
+  </div>`}
+function renderBackupNudge(){const e=document.getElementById("backupNudge");if(!e)return;const n=DB.profile.backupSnooze;if(!backupStale()||n&&n>today()){e.innerHTML="";return}const a=DB.profile.lastBackup?daysSince(DB.profile.lastBackup):null;e.innerHTML=`<div class="backup-nudge"><span aria-hidden="true">💾</span>
+    <div class="backup-nudge-txt">${a==null?"Tes données ne sont pas sauvegardées":`Dernière sauvegarde ${agoLabel(a)}`}</div>
     <button type="button" class="pause-btn" onclick="exportData()">Sauvegarder</button>
-    <button type="button" class="backup-x" onclick="snoozeBackupNudge()" aria-label="Me le rappeler dans 7 jours">✕</button></div>`;
-}
-function snoozeBackupNudge() { DB.profile.backupSnooze = fmtDate(addDays(appNow(), 7)); saveData(); renderBackupNudge(); }
+    <button type="button" class="backup-x" onclick="snoozeBackupNudge()" aria-label="Me le rappeler dans 7 jours">✕</button></div>`}
+function snoozeBackupNudge(){DB.profile.backupSnooze=fmtDate(addDays(appNow(),7)),saveData(),renderBackupNudge()}

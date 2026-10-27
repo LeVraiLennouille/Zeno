@@ -1,0 +1,48 @@
+let detailId=null,detailYear=null;
+const DETAIL_TREND_WEEKS=26,DETAIL_DOW_DAYS=84;
+function openHabitDetail(e){if(!HABITS.find(a=>a.id===e))return;detailId=e,detailYear=appNow().getFullYear(),renderHabitDetail();const t=document.querySelector("#detailModal .modal-card");t&&(t.scrollTop=0),document.getElementById("detailModal").classList.add("open"),setTimeout(drawDetailChart,80)}
+function closeHabitDetail(){detailId=null,document.getElementById("detailModal").classList.remove("open")}
+function detailEdit(){const i=detailId;closeHabitDetail(),i&&setTimeout(()=>openHabitForm(i),50)}
+function detailYearNav(a){const e=detailYear+a,t=parseDate(DB.createdAt).getFullYear();e>appNow().getFullYear()||e<t||(detailYear=e,renderHabitDetail(),setTimeout(drawDetailChart,30))}
+function detailCell(t,n){const e=fmtDate(n),r=(DB.habits[t.id]||{logs:{}}).logs;if(e>today())return{c:"future",t:""};if(e<DB.createdAt)return{c:"none",t:""};if(isPaused(e))return{c:"paused",t:"pause"};if(!isDayActive(t,n))return{c:"off",t:"inactif"};if(t.type==="bad"){const c=isBadFail(t.id,e),a=badVal(t.id,e);return c?{c:"fail",t:"craqué"+(a?` (${a})`:"")}:{c:"done",t:"tenu bon"}}if(t.type==="weekly"||t.type==="times")return r[e]==="done"?{c:"done",t:"fait"}:{c:"rest",t:"–"};const i=getHabitDayValue(t,e,n);return i>=1?{c:"done",t:"objectif atteint"}:i>0?{c:"part",t:`${Math.round(i*100)} %`,a:i}:{c:"miss",t:"manqué"}}
+function detailGridHtml(c,s){const g=new Date(s,0,1),$=new Date(s,11,31),o=parseDate(getWeekMonday(g)),a=Math.round((parseDate(getWeekMonday($))-o)/6048e5)+1;let n="",r="",t=0;for(let d=0;d<a;d++)for(let i=0;i<7;i++){const l=addDays(o,d*7+i);if(l.getFullYear()!==s){n+='<i class="dg-cell dg-blank"></i>';continue}const e=detailCell(c,l);e.c==="done"&&t++;const u=e.a?` style="--a:${e.a.toFixed(2)}"`:"";n+=`<i class="dg-cell dg-${e.c}"${u}${e.t?` title="${fmtDay(fmtDate(l))} · ${esc(e.t)}"`:""}></i>`,l.getDate()===1&&(r+=`<span style="grid-column:${d+1}">${MONTH_SHORT[l.getMonth()].slice(0,3)}</span>`)}return{html:`<div class="dg-scroll" id="dgScroll" tabindex="0" role="group" aria-label="Grille annuelle ${s} : ${t} jour${t>1?"s":""} réussi${t>1?"s":""}">
+      <div class="dg-inner" style="--weeks:${a};--hc:${c.color}">
+        <div class="dg-months" style="grid-template-columns:repeat(${a},var(--dg-cell))">${r}</div>
+        <div class="dg-grid">${n}</div>
+      </div></div>`,doneCount:t}}
+function detailTotals(e){const o=(DB.habits[e.id]||{logs:{}}).logs,d=calcStreak(e),c=Object.keys(o).filter(t=>o[t]==="done").length,l=appNow();l.setHours(0,0,0,0);let r=null,u="Taux sur 30 jours";if(e.type==="times"){const t=timesRangeStats(e,addDays(l,-55),l);r=t.tot?Math.round(t.ok/t.tot*100):null,u="Semaines réussies (8 dern.)"}else if(e.type==="weekly"){let t=0,a=0;for(let s=0;s<8;s++){const n=fmtDate(addDays(parseDate(getWeekMonday(l)),-s*7));if(n<DB.createdAt&&s>0)break;a++,isWeeklyDoneForWeek(e.id,n)&&t++}r=a?Math.round(t/a*100):null,u="Semaines faites (8 dern.)"}else{let t=0,a=0;for(let s=0;s<30;s++){const n=addDays(l,-s),y=fmtDate(n);y<DB.createdAt||!isDayActive(e,n)||(t++,a+=Math.min(1,getHabitDayValue(e,y,n)))}r=t?Math.round(a/t*100):null}let i;if(e.type==="counter"||e.type==="drink"){const t=Object.values(o).reduce((a,s)=>a+(typeof s=="number"?s:0),0);i=[`${fmtNum(Math.round(t*10)/10)} ${esc(e.type==="drink"?"ml":e.unit||"")}`.trim(),"Total cumulé"]}else e.type==="bad"?i=[String(Object.keys(o).filter(t=>o[t]==="fail").length),"Craquages"]:e.type==="times"||e.type==="weekly"?i=[String(c),e.type==="times"?"Séances au total":"Fois au total"]:i=[String(c),"Jours réussis"];return{cur:d.current,best:d.longest,rate:r,rateLabel:u,t4:i}}
+function detailWeekdays(t){const n=appNow();n.setHours(0,0,0,0);const d=Array.from({length:7},()=>({req:0,done:0}));for(let e=0;e<DETAIL_DOW_DAYS;e++){const a=addDays(n,-e),i=fmtDate(a);if(i<DB.createdAt||!isDayActive(t,a))continue;const r=(a.getDay()+6)%7;d[r].req++;let o;t.type==="bad"?o=!isBadFail(t.id,i):t.type==="weekly"||t.type==="times"?o=DB.habits[t.id].logs[i]==="done":o=getHabitDayValue(t,i,a)>=1,o&&d[r].done++}return d.map((e,a)=>({label:DAY_SHORT[a],rate:e.req>=3?Math.round(e.done/e.req*100):null,n:e.req}))}
+function detailTrend(e){const l=appNow();l.setHours(0,0,0,0);const y=parseDate(getWeekMonday(l)),r=[];for(let n=DETAIL_TREND_WEEKS-1;n>=0;n--){const a=addDays(y,-n*7),D=fmtDate(a);let o=null;if(fmtDate(addDays(a,6))>=DB.createdAt)if(e.type==="times"){const t=timesWeekInfo(e,D);o=t.required>0?Math.round(Math.min(1,t.done/t.required)*100):null}else if(e.type==="weekly")o=isWeeklyDoneForWeek(e.id,D)?100:0;else{let t=0,u=0;for(let i=0;i<7;i++){const s=addDays(a,i),d=fmtDate(s);d>today()||d<DB.createdAt||!isDayActive(e,s)||(t++,u+=e.type==="bad"?isBadFail(e.id,d)?0:1:Math.min(1,getHabitDayValue(e,d,s)))}o=t?Math.round(u/t*100):null}r.push({label:`${a.getDate()}/${a.getMonth()+1}`,showLabel:n%5===0,v:o})}return r}
+function positionDetailGrid(){const e=document.getElementById("dgScroll");if(e)if(detailYear===appNow().getFullYear()){const t=Math.round((parseDate(getWeekMonday(appNow()))-parseDate(getWeekMonday(new Date(detailYear,0,1))))/6048e5);e.scrollLeft=Math.max(0,(t+1)*15-e.clientWidth+36)}else e.scrollLeft=0}
+function drawDetailChart(){const i=HABITS.find(t=>t.id===detailId);i&&(positionDetailGrid(),drawLineChart("detailChart",detailTrend(i)))}
+function renderHabitDetail(){const o=document.getElementById("detailBody");if(!o)return;const a=HABITS.find(e=>e.id===detailId);if(!a)return;const i=detailTotals(a),b=detailGridHtml(a,detailYear),n=detailWeekdays(a);document.getElementById("detailTitle").textContent=a.name;const c=n.filter(e=>e.rate!=null);let r="Pas encore assez de données (3 jours par jour de la semaine).";if(c.length>=4){const e=c.reduce((t,l)=>l.rate>t.rate?l:t),s=c.reduce((t,l)=>l.rate<t.rate?l:t),d=t=>DAY_FULL[(DAY_SHORT.indexOf(t.label)+1)%7].toLowerCase();r=a.type==="bad"?`Ton jour le plus solide : <b>${d(e)}</b> (${e.rate} %) · le plus risqué : <b>${d(s)}</b> (${s.rate} %).`:e.rate===s.rate?"Régulier toute la semaine.":`Ton jour fort : <b>${d(e)}</b> (${e.rate} %) · le plus faible : <b>${d(s)}</b> (${s.rate} %).`}const p=Math.max(1,...n.map(e=>e.rate||0)),$=n.map(e=>`<div class="dw-col" title="${e.rate==null?"pas assez de données":e.rate+" %"}">
+      <div class="dw-bar"><i style="height:${e.rate==null?0:Math.max(4,Math.round(e.rate/p*100))}%"></i></div>
+      <div class="dw-val">${e.rate==null?"–":e.rate}</div><div class="dw-lab">${e.label[0]}</div></div>`).join("");let v="";if(a.type!=="weekly"){const e=compareMood(insightRows(120),s=>s.done[a.id]);e&&Math.abs(e.diff)>=.2&&(v=`<div class="dt-mood"><span aria-hidden="true">${MOOD_EMOJIS[Math.round(e.a)]||"😐"}</span><div>Humeur moyenne les jours où c’est fait : <b>${f1(e.a)}</b> (contre ${f1(e.b)} sinon), sur ${e.n} jours.</div></div>`)}let u="";if(a.type==="bad"&&a.levels){const e=(DB.habits[a.id]||{}).vals||{},s={};Object.keys(e).forEach(t=>{s[e[t]]=(s[e[t]]||0)+1});const d=a.levels.filter(t=>s[t]).map(t=>`<span class="dt-chip">${esc(t)} <b>${s[t]}×</b></span>`).join("");d&&(u=`<div class="dt-levels"><div class="dt-sub">Répartition des écarts</div>${d}</div>`)}const m=detailYear>parseDate(DB.createdAt).getFullYear(),h=detailYear<appNow().getFullYear();o.innerHTML=`
+    <div class="dt-head" style="--ink:${a.color}">
+      <div class="dt-emoji">${habitIconMarkup(a)}</div>
+      <div class="dt-head-txt"><div class="dt-name">${esc(a.name)}</div><div class="dt-freq">${esc(a.freq||"Tous les jours")}${a.archived?" · archivée":""}</div></div>
+    </div>
+    <div class="dt-tiles">
+      <div class="dt-tile"><div class="dt-val">${esc(streakLabel(a,i.cur))}</div><div class="dt-lab">Série en cours</div></div>
+      <div class="dt-tile"><div class="dt-val">${esc(streakLabel(a,i.best))}</div><div class="dt-lab">Meilleure série</div></div>
+      <div class="dt-tile"><div class="dt-val">${i.rate==null?"–":i.rate+" %"}</div><div class="dt-lab">${i.rateLabel}</div></div>
+      <div class="dt-tile"><div class="dt-val">${i.t4[0]}</div><div class="dt-lab">${i.t4[1]}</div></div>
+    </div>
+    ${v}${u}
+    <div class="dt-section">
+      <div class="dt-section-head"><div class="dt-section-title">Grille ${detailYear}</div>
+        <div class="dt-nav"><button type="button" class="mood-cal-nav-btn" onclick="detailYearNav(-1)" aria-label="Année précédente"${m?"":" disabled"}><svg viewBox="0 0 18 18"><polyline points="12 4 6 9 12 14"/></svg></button>
+        <button type="button" class="mood-cal-nav-btn" onclick="detailYearNav(1)" aria-label="Année suivante"${h?"":" disabled"}><svg viewBox="0 0 18 18"><polyline points="6 4 12 9 6 14"/></svg></button></div></div>
+      ${b.html}
+      <div class="dg-legend"><span><i class="dg-cell dg-done" style="--hc:${a.color}"></i> fait</span><span><i class="dg-cell dg-part" style="--hc:${a.color};--a:.5"></i> partiel</span><span><i class="dg-cell dg-miss"></i> manqué</span><span><i class="dg-cell dg-paused"></i> pause</span></div>
+    </div>
+    <div class="dt-section">
+      <div class="dt-section-title">Jour de la semaine</div>
+      <div class="dw-chart" style="--hc:${a.color}" role="img" aria-label="Taux de réussite par jour de la semaine">${$}</div>
+      <div class="dt-text">${r}</div>
+    </div>
+    <div class="dt-section">
+      <div class="dt-section-title">Évolution · ${DETAIL_TREND_WEEKS} semaines</div>
+      <canvas id="detailChart" height="160" role="img" aria-label="Évolution hebdomadaire"></canvas>
+    </div>
+    <div class="hf-actions"><button type="button" class="modal-save-btn" onclick="detailEdit()">Modifier l’habitude</button></div>`}

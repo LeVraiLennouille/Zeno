@@ -1,178 +1,36 @@
-/* HabitsTracker · Rappels configurables et notifications
- * Script classique : il partage la portée globale avec les autres fichiers de js/ (ordre de chargement : voir index.html). */
-
-/* ═══════════ Rappels configurables ═══════════ */
-let _notifTimers = [];
-
-function notifsGranted() {
-  return !!DB.profile.notifsEnabled && ('Notification' in window) && Notification.permission === 'granted';
-}
-
-function initNotifications() {
-  const on = !!DB.profile.notifsEnabled;
-  updateToggleBtn('notifsToggle', on);
-  if (notifsGranted()) scheduleLocalNotifications();
-}
-
-async function toggleNotifications() {
-  if (!('Notification' in window)) { alert('Les notifications ne sont pas prises en charge sur cet appareil.'); return; }
-  if (DB.profile.notifsEnabled) {
-    DB.profile.notifsEnabled = false;
-    _notifTimers.forEach(id => clearTimeout(id)); _notifTimers = [];
-    saveData();
-    updateToggleBtn('notifsToggle', false);
-    showToast('Notifications désactivées', 2500, 'bellOff');
-    if (activePage === 'account') renderAccount();
-    return;
-  }
-  let perm = Notification.permission;
-  if (perm === 'default') perm = await Notification.requestPermission();
-  if (perm === 'granted') {
-    DB.profile.notifsEnabled = true; saveData();
-    updateToggleBtn('notifsToggle', true);
-    scheduleLocalNotifications();
-    const n = (DB.reminders || []).filter(r => r.enabled).length;
-    showToast(`${n} rappel${n > 1 ? 's' : ''} programmé${n > 1 ? 's' : ''}`, 3000, 'bell');
-  } else {
-    showToast('Notifications bloquées : vérifie les réglages du navigateur', 3500, 'alert');
-  }
-  if (activePage === 'account') renderAccount();
-}
-
-/* Prochaine occurrence (Date) d'un rappel, en respectant ses jours. */
-function nextOccurrence(r, from) {
-  from = from || new Date();
-  if (!r.days || !r.days.length) return null;
-  for (let i = 0; i < 8; i++) {
-    const t = new Date(from);
-    t.setDate(t.getDate() + i);
-    t.setHours(r.hour, r.minute, 0, 0);
-    if (t > from && r.days.includes(t.getDay())) return t;
-  }
-  return null;
-}
-
-function scheduleLocalNotifications() {
-  _notifTimers.forEach(id => clearTimeout(id)); _notifTimers = [];
-  if (!notifsGranted()) return;
-  (DB.reminders || []).forEach(r => {
-    if (!r.enabled) return;
-    const t = nextOccurrence(r); if (!t) return;
-    const ms = t.getTime() - Date.now();
-    if (ms <= 0) return;
-    _notifTimers.push(setTimeout(() => fireReminder(r.id, t.getTime()), ms));
-  });
-}
-
-function reminderSatisfied(r) {
-  if (!r.habitId) return false;
-  const h = HABITS.find(x => x.id === r.habitId);
-  if (!h || h.type === 'bad') return false;
-  const d = appNow(); d.setHours(0, 0, 0, 0);
-  if (h.type === 'times' && timesThisWeek(h).state === 'success') return true;   // objectif de la semaine déjà atteint
-  return isHabitDoneOn(h, today(), d);
-}
-
-async function fireReminder(id, targetTs) {
-  const r = (DB.reminders || []).find(x => x.id === id);
-  const late = Date.now() - targetTs;
-  // Ignore un rappel arrivé très en retard (appareil en veille) ou déjà accompli.
-  if (r && r.enabled && late < 10 * 60 * 1000 && !reminderSatisfied(r)) await showReminderNotification(r);
-  scheduleLocalNotifications();
-}
-
-async function showReminderNotification(r) {
-  const opts = { body: r.body || '', icon: './assets/icon-192.png', badge: './assets/icon-192.png', tag: 'ht-' + r.id, data: { url: './' } };
-  try {
-    if ('serviceWorker' in navigator) {
-      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise(res => setTimeout(() => res(null), 1500))]);
-      if (reg && reg.showNotification) { await reg.showNotification(r.title, opts); return true; }
-    }
-  } catch (e) {}
-  try { new Notification(r.title, opts); return true; } catch (e) { return false; }
-}
-
-async function sendTestNotification() {
-  if (!notifsGranted()) { showToast('Active d’abord les notifications', 3000, 'alert'); return; }
-  const ok = await showReminderNotification({ id: 'test', title: '🔔 Notification test', body: 'Tout fonctionne : tes rappels te parviendront.' });
-  showToast(ok ? 'Notification envoyée' : 'Impossible d’afficher la notification', 2600, ok ? 'bell' : 'alert');
-}
-
-// Les minuteries sont suspendues quand l'app passe en arrière-plan : on replanifie au retour.
-document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleLocalNotifications(); });
-
-/* ── Liste des rappels (page Compte) ── */
-function remindersSectionHtml() {
-  const list = [...(DB.reminders || [])].sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute));
-  const on = notifsGranted();
-  const rows = list.map(r => {
-    const h = r.habitId ? HABITS.find(x => x.id === r.habitId) : null;
-    const sub = daysLabel(r.days) + (h ? ` · ${esc(h.name)}` : '');
-    return `<div class="pref-row reminder-row${r.enabled ? '' : ' off'}" role="button" tabindex="0" onclick="openReminder('${r.id}')" onkeydown="if(event.key==='Enter')openReminder('${r.id}')">
-      <div class="reminder-time">${pad2(r.hour)}:${pad2(r.minute)}</div>
-      <div class="pref-info reminder-info"><div><div class="pref-label-text">${esc(r.title)}</div><div class="pref-hint">${sub}</div></div></div>
-      <button type="button" class="pref-toggle ${r.enabled ? 'on' : 'off'}" role="switch" aria-checked="${r.enabled}" aria-label="Activer le rappel ${esc(r.title)}" onclick="event.stopPropagation();toggleReminder('${r.id}')">${r.enabled ? 'Activé' : 'Désactivé'}</button>
-    </div>`;
-  }).join('');
-  return `<div>
+let _notifTimers=[];
+function notifsGranted(){return!!DB.profile.notifsEnabled&&"Notification"in window&&Notification.permission==="granted"}
+function initNotifications(){const i=!!DB.profile.notifsEnabled;updateToggleBtn("notifsToggle",i),notifsGranted()&&scheduleLocalNotifications()}
+async function toggleNotifications(){if(!("Notification"in window)){alert("Les notifications ne sont pas prises en charge sur cet appareil.");return}if(DB.profile.notifsEnabled){DB.profile.notifsEnabled=!1,_notifTimers.forEach(e=>clearTimeout(e)),_notifTimers=[],saveData(),updateToggleBtn("notifsToggle",!1),showToast("Notifications désactivées",2500,"bellOff"),activePage==="account"&&renderAccount();return}let i=Notification.permission;if(i==="default"&&(i=await Notification.requestPermission()),i==="granted"){DB.profile.notifsEnabled=!0,saveData(),updateToggleBtn("notifsToggle",!0),scheduleLocalNotifications();const e=(DB.reminders||[]).filter(t=>t.enabled).length;showToast(`${e} rappel${e>1?"s":""} programmé${e>1?"s":""}`,3e3,"bell")}else showToast("Notifications bloquées : vérifie les réglages du navigateur",3500,"alert");activePage==="account"&&renderAccount()}
+function nextOccurrence(t,n){if(n=n||new Date,!t.days||!t.days.length)return null;for(let u=0;u<8;u++){const e=new Date(n);if(e.setDate(e.getDate()+u),e.setHours(t.hour,t.minute,0,0),e>n&&t.days.includes(e.getDay()))return e}return null}
+function scheduleLocalNotifications(){_notifTimers.forEach(e=>clearTimeout(e)),_notifTimers=[],notifsGranted()&&(DB.reminders||[]).forEach(e=>{if(!e.enabled)return;const i=nextOccurrence(e);if(!i)return;const t=i.getTime()-Date.now();t<=0||_notifTimers.push(setTimeout(()=>fireReminder(e.id,i.getTime()),t))})}
+function reminderSatisfied(t){if(!t.habitId)return!1;const e=HABITS.find(s=>s.id===t.habitId);if(!e||e.type==="bad")return!1;const i=appNow();return i.setHours(0,0,0,0),e.type==="times"&&timesThisWeek(e).state==="success"?!0:isHabitDoneOn(e,today(),i)}
+async function fireReminder(e,n){const i=(DB.reminders||[]).find(a=>a.id===e),t=Date.now()-n;i&&i.enabled&&t<600*1e3&&!reminderSatisfied(i)&&await showReminderNotification(i),scheduleLocalNotifications()}
+async function showReminderNotification(i){const e={body:i.body||"",icon:"./assets/icon-192.png",badge:"./assets/icon-192.png",tag:"ht-"+i.id,data:{url:"./"}};try{if("serviceWorker"in navigator){const t=await Promise.race([navigator.serviceWorker.ready,new Promise(o=>setTimeout(()=>o(null),1500))]);if(t&&t.showNotification)return await t.showNotification(i.title,e),!0}}catch{}try{return new Notification(i.title,e),!0}catch{return!1}}
+async function sendTestNotification(){if(!notifsGranted()){showToast("Active d’abord les notifications",3e3,"alert");return}const t=await showReminderNotification({id:"test",title:"🔔 Notification test",body:"Tout fonctionne : tes rappels te parviendront."});showToast(t?"Notification envoyée":"Impossible d’afficher la notification",2600,t?"bell":"alert")}
+document.addEventListener("visibilitychange",()=>{document.hidden||scheduleLocalNotifications()});
+function remindersSectionHtml(){const n=[...DB.reminders||[]].sort((e,t)=>e.hour*60+e.minute-(t.hour*60+t.minute)),i=notifsGranted();return`<div>
     <div class="account-section-title">Rappels</div>
     <div class="pref-card">
-      ${rows || `<div class="pref-row"><div class="pref-hint">Aucun rappel pour l’instant.</div></div>`}
+      ${n.map(e=>{const t=e.habitId?HABITS.find(s=>s.id===e.habitId):null,o=daysLabel(e.days)+(t?` · ${esc(t.name)}`:"");return`<div class="pref-row reminder-row${e.enabled?"":" off"}" role="button" tabindex="0" onclick="openReminder('${e.id}')" onkeydown="if(event.key==='Enter')openReminder('${e.id}')">
+      <div class="reminder-time">${pad2(e.hour)}:${pad2(e.minute)}</div>
+      <div class="pref-info reminder-info"><div><div class="pref-label-text">${esc(e.title)}</div><div class="pref-hint">${o}</div></div></div>
+      <button type="button" class="pref-toggle ${e.enabled?"on":"off"}" role="switch" aria-checked="${e.enabled}" aria-label="Activer le rappel ${esc(e.title)}" onclick="event.stopPropagation();toggleReminder('${e.id}')">${e.enabled?"Activé":"Désactivé"}</button>
+    </div>`}).join("")||'<div class="pref-row"><div class="pref-hint">Aucun rappel pour l’instant.</div></div>'}
       <div class="pref-row"><button type="button" class="reminder-add" onclick="openReminder()">+ Ajouter un rappel</button></div>
     </div>
-    <div class="hf-hint reminders-note">${on
-      ? 'Les rappels sonnent tant que l’app est ouverte ou active en arrière-plan.'
-      : 'Active les notifications dans les préférences pour recevoir tes rappels.'}</div>
-    ${on ? `<button type="button" class="pref-edit reminder-test" onclick="sendTestNotification()">Envoyer une notification test</button>` : ''}
-  </div>`;
-}
-
-function toggleReminder(id) {
-  const r = (DB.reminders || []).find(x => x.id === id); if (!r) return;
-  r.enabled = !r.enabled;
-  saveData(); scheduleLocalNotifications();
-  if (activePage === 'account') renderAccount();
-}
-
-/* ── Formulaire de rappel ── */
-let rf = null;
-
-function openReminder(id) {
-  const r = id ? (DB.reminders || []).find(x => x.id === id) : null;
-  if (id && !r) return;
-  rf = r
-    ? { mode:'edit', id:r.id, title:r.title, body:r.body || '', time:`${pad2(r.hour)}:${pad2(r.minute)}`, days:r.days.slice(), habitId:r.habitId || '', enabled:r.enabled !== false }
-    : { mode:'create', id:null, title:'', body:'', time:'09:00', days:ALL_DAYS.slice(), habitId:'', enabled:true };
-  document.getElementById('reminderFormTitle').textContent = r ? 'Modifier le rappel' : 'Nouveau rappel';
-  renderReminderForm();
-  document.querySelector('#reminderModal .modal-card').scrollTop = 0;
-  document.getElementById('reminderModal').classList.add('open');
-  if (!r) setTimeout(() => { const el = document.getElementById('rfTitle'); if (el) el.focus(); }, 120);
-}
-function closeReminder() {
-  rf = null;
-  document.getElementById('reminderModal').classList.remove('open');
-}
-function rfInput(key, val) { if (rf) rf[key] = val; }
-function rfSet(key, val)   { if (!rf) return; rf[key] = val; renderReminderForm(); }
-function rfToggleDay(d) {
-  if (!rf) return;
-  rf.days = rf.days.includes(d) ? rf.days.filter(x => x !== d) : [...rf.days, d];
-  renderReminderForm();
-}
-function rfDays(preset) {
-  if (!rf) return;
-  rf.days = preset === 'week' ? WEEKDAYS.slice() : ALL_DAYS.slice();
-  renderReminderForm();
-}
-
-function renderReminderForm() {
-  const el = document.getElementById('reminderFormBody');
-  if (!el || !rf) return;
-  const isEdit = rf.mode === 'edit';
-  const habitOpts = liveHabits().filter(h => h.type !== 'bad')
-    .map(h => `<option value="${h.id}"${rf.habitId === h.id ? ' selected' : ''}>${esc(h.name)}</option>`).join('');
-  el.innerHTML = `
+    <div class="hf-hint reminders-note">${i?"Les rappels sonnent tant que l’app est ouverte ou active en arrière-plan.":"Active les notifications dans les préférences pour recevoir tes rappels."}</div>
+    ${i?'<button type="button" class="pref-edit reminder-test" onclick="sendTestNotification()">Envoyer une notification test</button>':""}
+  </div>`}
+function toggleReminder(n){const e=(DB.reminders||[]).find(i=>i.id===n);e&&(e.enabled=!e.enabled,saveData(),scheduleLocalNotifications(),activePage==="account"&&renderAccount())}
+let rf=null;
+function openReminder(t){const e=t?(DB.reminders||[]).find(d=>d.id===t):null;t&&!e||(rf=e?{mode:"edit",id:e.id,title:e.title,body:e.body||"",time:`${pad2(e.hour)}:${pad2(e.minute)}`,days:e.days.slice(),habitId:e.habitId||"",enabled:e.enabled!==!1}:{mode:"create",id:null,title:"",body:"",time:"09:00",days:ALL_DAYS.slice(),habitId:"",enabled:!0},document.getElementById("reminderFormTitle").textContent=e?"Modifier le rappel":"Nouveau rappel",renderReminderForm(),document.querySelector("#reminderModal .modal-card").scrollTop=0,document.getElementById("reminderModal").classList.add("open"),e||setTimeout(()=>{const d=document.getElementById("rfTitle");d&&d.focus()},120))}
+function closeReminder(){rf=null,document.getElementById("reminderModal").classList.remove("open")}
+function rfInput(f,n){rf&&(rf[f]=n)}
+function rfSet(r,e){rf&&(rf[r]=e,renderReminderForm())}
+function rfToggleDay(r){rf&&(rf.days=rf.days.includes(r)?rf.days.filter(f=>f!==r):[...rf.days,r],renderReminderForm())}
+function rfDays(e){rf&&(rf.days=e==="week"?WEEKDAYS.slice():ALL_DAYS.slice(),renderReminderForm())}
+function renderReminderForm(){const t=document.getElementById("reminderFormBody");if(!t||!rf)return;const l=rf.mode==="edit",a=liveHabits().filter(e=>e.type!=="bad").map(e=>`<option value="${e.id}"${rf.habitId===e.id?" selected":""}>${esc(e.name)}</option>`).join("");t.innerHTML=`
     <div class="modal-section">
       <label class="modal-label" for="rfTitle">Titre</label>
       <input id="rfTitle" class="pseudo-input hf-input" type="text" maxlength="40" placeholder="Ex. 💊 Vitamines" value="${esc(rf.title)}" oninput="rfInput('title',this.value)">
@@ -188,7 +46,7 @@ function renderReminderForm() {
     <div class="modal-section">
       <label class="modal-label">Jours</label>
       <div class="hf-days" role="group" aria-label="Jours du rappel">
-        ${DOW_ORDER.map(d => `<button type="button" class="hf-day${rf.days.includes(d) ? ' selected' : ''}" aria-pressed="${rf.days.includes(d)}" aria-label="${DAY_FULL[d]}" onclick="rfToggleDay(${d})">${DOW_LETTER[d]}</button>`).join('')}
+        ${DOW_ORDER.map(e=>`<button type="button" class="hf-day${rf.days.includes(e)?" selected":""}" aria-pressed="${rf.days.includes(e)}" aria-label="${DAY_FULL[e]}" onclick="rfToggleDay(${e})">${DOW_LETTER[e]}</button>`).join("")}
       </div>
       <div class="hf-presets">
         <button type="button" class="hf-link" onclick="rfDays('all')">Tous les jours</button>
@@ -199,7 +57,7 @@ function renderReminderForm() {
       <label class="modal-label" for="rfHabit">Habitude liée <span class="hf-opt">(facultatif)</span></label>
       <select id="rfHabit" class="pseudo-input hf-input" onchange="rfInput('habitId',this.value)">
         <option value="">Aucune</option>
-        ${habitOpts}
+        ${a}
       </select>
       <div class="hf-hint">Si l’habitude est déjà faite à l’heure du rappel, la notification est ignorée.</div>
     </div>
@@ -208,45 +66,11 @@ function renderReminderForm() {
         <div class="pref-label-text">Rappel actif</div>
         <div class="pref-hint">Désactive-le sans le supprimer</div>
       </div>
-      <button type="button" class="pref-toggle ${rf.enabled ? 'on' : 'off'}" role="switch" aria-checked="${rf.enabled}" aria-label="Rappel actif" onclick="rfSet('enabled',!rf.enabled)">${rf.enabled ? 'Activé' : 'Désactivé'}</button>
+      <button type="button" class="pref-toggle ${rf.enabled?"on":"off"}" role="switch" aria-checked="${rf.enabled}" aria-label="Rappel actif" onclick="rfSet('enabled',!rf.enabled)">${rf.enabled?"Activé":"Désactivé"}</button>
     </div>
     <div class="hf-actions">
-      <button type="button" class="modal-save-btn" onclick="saveReminder()">${isEdit ? 'Enregistrer' : 'Créer le rappel'}</button>
-      ${isEdit ? `<button type="button" class="modal-reset-btn" onclick="deleteReminder()">${icon('trash')} Supprimer le rappel</button>` : ''}
-    </div>`;
-}
-
-function saveReminder() {
-  if (!rf) return;
-  const title = rf.title.trim();
-  if (!title) { showToast('Donne un titre au rappel', 2500, 'alert'); return; }
-  const m = /^(\d{1,2}):(\d{2})$/.exec(rf.time || '');
-  if (!m || +m[1] > 23 || +m[2] > 59) { showToast('Choisis une heure valide', 2500, 'alert'); return; }
-  if (rf.days.length === 0) { showToast('Choisis au moins un jour', 2800, 'alert'); return; }
-
-  const data = { title, body: rf.body.trim(), hour: +m[1], minute: +m[2], days: rf.days.slice(), habitId: rf.habitId || '', enabled: rf.enabled };
-  if (!Array.isArray(DB.reminders)) DB.reminders = [];
-  if (rf.mode === 'create') {
-    DB.reminders.push({ id: 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), ...data });
-  } else {
-    const r = DB.reminders.find(x => x.id === rf.id);
-    if (r) Object.assign(r, data);
-  }
-  saveData();
-  scheduleLocalNotifications();
-  closeReminder();
-  if (activePage === 'account') renderAccount();
-  showToast(notifsGranted() ? 'Rappel enregistré' : 'Rappel enregistré : active les notifications pour le recevoir', notifsGranted() ? 2200 : 3600, 'bell');
-}
-
-function deleteReminder() {
-  if (!rf || rf.mode !== 'edit') return;
-  const r = (DB.reminders || []).find(x => x.id === rf.id);
-  if (!r) { closeReminder(); return; }
-  if (!confirm(`Supprimer le rappel « ${r.title} » ?`)) return;
-  DB.reminders = DB.reminders.filter(x => x.id !== r.id);
-  saveData(); scheduleLocalNotifications();
-  closeReminder();
-  if (activePage === 'account') renderAccount();
-  showToast('Rappel supprimé', 2200, 'trash');
-}
+      <button type="button" class="modal-save-btn" onclick="saveReminder()">${l?"Enregistrer":"Créer le rappel"}</button>
+      ${l?`<button type="button" class="modal-reset-btn" onclick="deleteReminder()">${icon("trash")} Supprimer le rappel</button>`:""}
+    </div>`}
+function saveReminder(){if(!rf)return;const r=rf.title.trim();if(!r){showToast("Donne un titre au rappel",2500,"alert");return}const e=/^(\d{1,2}):(\d{2})$/.exec(rf.time||"");if(!e||+e[1]>23||+e[2]>59){showToast("Choisis une heure valide",2500,"alert");return}if(rf.days.length===0){showToast("Choisis au moins un jour",2800,"alert");return}const i={title:r,body:rf.body.trim(),hour:+e[1],minute:+e[2],days:rf.days.slice(),habitId:rf.habitId||"",enabled:rf.enabled};if(Array.isArray(DB.reminders)||(DB.reminders=[]),rf.mode==="create")DB.reminders.push({id:"r_"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),...i});else{const t=DB.reminders.find(n=>n.id===rf.id);t&&Object.assign(t,i)}saveData(),scheduleLocalNotifications(),closeReminder(),activePage==="account"&&renderAccount(),showToast(notifsGranted()?"Rappel enregistré":"Rappel enregistré : active les notifications pour le recevoir",notifsGranted()?2200:3600,"bell")}
+function deleteReminder(){if(!rf||rf.mode!=="edit")return;const e=(DB.reminders||[]).find(r=>r.id===rf.id);if(!e){closeReminder();return}confirm(`Supprimer le rappel « ${e.title} » ?`)&&(DB.reminders=DB.reminders.filter(r=>r.id!==e.id),saveData(),scheduleLocalNotifications(),closeReminder(),activePage==="account"&&renderAccount(),showToast("Rappel supprimé",2200,"trash"))}
