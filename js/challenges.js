@@ -38,12 +38,12 @@ function seasonRank(xp) {
   return { index: i, rank: i + 1, roman: ROMAN[i], name: cur.name, next: nxt,
     pct: nxt ? Math.round((xp - cur.xp) / (nxt.xp - cur.xp) * 100) : 100, needed: nxt ? nxt.xp - xp : 0 };
 }
-function currentSeasonXp() { return (DB.seasonXp || {})[seasonOf(new Date()).id] || 0; }
+function currentSeasonXp() { return (DB.seasonXp || {})[seasonOf(appNow()).id] || 0; }
 // Appelé par giveXP : crédite la saison en cours et annonce un changement de rang.
 function addSeasonXp(amount) {
   if (!(amount > 0)) return;
   if (!DB.seasonXp) DB.seasonXp = {};
-  const id = seasonOf(new Date()).id;
+  const id = seasonOf(appNow()).id;
   const before = seasonRank(DB.seasonXp[id] || 0).rank;
   DB.seasonXp[id] = (DB.seasonXp[id] || 0) + amount;
   const after = seasonRank(DB.seasonXp[id]);
@@ -52,7 +52,7 @@ function addSeasonXp(amount) {
   }
 }
 function seasonCardHtml() {
-  const s = seasonOf(new Date()); const xp = currentSeasonXp(); const r = seasonRank(xp);
+  const s = seasonOf(appNow()); const xp = currentSeasonXp(); const r = seasonRank(xp);
   const daysLeft = Math.max(0, Math.round((s.end - midnight()) / 86400000));
   const past = Object.keys(DB.seasonXp || {}).filter(id => id !== s.id).sort().reverse().slice(0, 6);
   const pastHtml = past.length ? `<div class="season-past"><div class="season-past-title">Saisons passées</div>${past.map(id => {
@@ -194,7 +194,7 @@ function challengesTabHtml() {
 
 /* ── Formulaire de création ── */
 let cf = null;
-function chalCandidates() { return liveHabits().filter(h => h.type !== 'weekly' && !(DB.challenges || []).some(c => c.status === 'active' && c.habitId === h.id)); }
+function chalCandidates() { return liveHabits().filter(h => h.type !== 'weekly' && h.type !== 'times' && !(DB.challenges || []).some(c => c.status === 'active' && c.habitId === h.id)); }
 function openChallengeForm() {
   const cands = chalCandidates();
   if ((DB.challenges || []).filter(c => c.status === 'active').length >= CHAL_MAX_ACTIVE) { showToast(`Maximum ${CHAL_MAX_ACTIVE} défis en cours`, 2800, 'alert'); return; }
@@ -303,7 +303,7 @@ function clearChallengeHistory() {
 
 // Petit bloc « saison » affiché sous la barre d'XP de la page Compte.
 function seasonMiniHtml() {
-  const s = seasonOf(new Date()); const r = seasonRank(currentSeasonXp());
+  const s = seasonOf(appNow()); const r = seasonRank(currentSeasonXp());
   return `<div class="xp-card-row" style="margin-top:14px"><span class="xp-label">${s.def.emoji} ${esc(s.label)}</span><span class="xp-value">Rang ${r.roman} · ${r.name}</span></div>
       <div class="xp-bar-track"><div class="xp-bar-fill" style="width:${r.pct}%"></div></div>`;
 }

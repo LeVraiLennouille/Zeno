@@ -68,7 +68,8 @@ function reminderSatisfied(r) {
   if (!r.habitId) return false;
   const h = HABITS.find(x => x.id === r.habitId);
   if (!h || h.type === 'bad') return false;
-  const d = new Date(); d.setHours(0, 0, 0, 0);
+  const d = appNow(); d.setHours(0, 0, 0, 0);
+  if (h.type === 'times' && timesThisWeek(h).state === 'success') return true;   // objectif de la semaine déjà atteint
   return isHabitDoneOn(h, today(), d);
 }
 

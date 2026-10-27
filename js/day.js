@@ -10,7 +10,7 @@ function onNewDay(prompt) {
   updateChallenges();
   scheduleLocalNotifications();
   renderActivePage();
-  if (prompt) checkDailyMood();                      // invite seulement quand l'utilisateur revient dans l'app, jamais en pleine nuit
+  if (prompt) { checkDailyMood(); maybeShowWeeklyReview(); }                      // invite seulement quand l'utilisateur revient dans l'app, jamais en pleine nuit
 }
 function checkDayChange(prompt) {
   if (today() !== _renderedDay) { onNewDay(prompt === true); return true; }
@@ -18,15 +18,17 @@ function checkDayChange(prompt) {
 }
 function scheduleMidnightCheck() {
   clearTimeout(_midnightTimer);
+  // Prochain changement de jour = prochaine fois qu'il est « heure de début de journée » (minuit par défaut).
   const n = new Date();
-  const next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 0, 0, 1);
+  const next = new Date(n.getFullYear(), n.getMonth(), n.getDate(), _dayStartHour, 0, 1);
+  if (next <= n) next.setDate(next.getDate() + 1);
   _midnightTimer = setTimeout(() => { checkDayChange(); scheduleMidnightCheck(); }, Math.max(1000, next - n));
 }
 function initDayWatcher() {
   scheduleMidnightCheck();
   // Filets de sécurité : minuteries suspendues en arrière-plan, changement d'heure, mise en veille…
   setInterval(() => { if (!document.hidden) checkDayChange(); }, 60000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (!checkDayChange(true)) checkDailyMood(); scheduleMidnightCheck(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (!checkDayChange(true)) { checkDailyMood(); maybeShowWeeklyReview(); } scheduleMidnightCheck(); } });
   window.addEventListener('focus', () => checkDayChange(true));
   window.addEventListener('pageshow', () => checkDayChange(true));
 }

@@ -41,7 +41,7 @@ function renderPauseBanner() {
 
 let pf = null; // {from,to,reason}
 function pauseBounds() {
-  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const t = appNow(); t.setHours(0, 0, 0, 0);
   let min = addDays(t, -PAUSE_PAST_DAYS);
   const created = parseDate(DB.createdAt);
   if (created > min) min = created;
@@ -63,7 +63,7 @@ function pfSet(key, val) {
 }
 function pfPreset(kind) {
   if (!pf) return;
-  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const t = appNow(); t.setHours(0, 0, 0, 0);
   const k = fmtDate(kind === 'yesterday' ? addDays(t, -1) : t);
   pf.from = k; pf.to = k; renderPauseForm();
 }

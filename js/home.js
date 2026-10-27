@@ -3,7 +3,7 @@
 
 let activePage = 'home';
 let activeHomeTab = 'today';
-let moodCalMonth = new Date();
+let moodCalMonth = appNow();
 moodCalMonth.setDate(1);
 
 function showPage(id) {
@@ -46,11 +46,11 @@ function renderHome() {
 
 function renderHero() {
   const el=document.getElementById('todayHero'); if(!el) return;
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0); const t=today();
-  const active=HABITS.filter(h=>!h.optional&&isDayActive(h,todayDate));
+  const todayDate=appNow(); todayDate.setHours(0,0,0,0); const t=today();
+  const active=HABITS.filter(h=>isRequiredHabit(h)&&isDayActive(h,todayDate));
   const done=active.filter(h=>isHabitDoneOn(h,t,todayDate));
   const perfect=active.length>0&&done.length===active.length;
-  const date=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const date=appNow().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   const level=calcLevel(DB.xp);
   const strip=active.map(h=>{ const f=dayProgress(h,t,todayDate); return `<span class="ink-seg${f>=1?' done':''}" style="--ink:${h.color};--fill:${Math.round(f*100)}%" title="${esc(h.name)}"></span>`; }).join('');
   el.innerHTML=`
@@ -67,19 +67,19 @@ function renderHero() {
 
 function renderTodayTab() {
   const container=document.getElementById('todayHabits'); if(!container) return;
-  const t=today(); const todayDate=new Date(); todayDate.setHours(0,0,0,0);
+  const t=today(); const todayDate=appNow(); todayDate.setHours(0,0,0,0);
   container.innerHTML='';
   if(!HABITS.some(h=>isDayActive(h,todayDate))) container.innerHTML=isPaused(t)?pausedDayNote():todayEmptyNote();
   liveHabits().forEach(habit=>{
     if(!isDayActive(habit,todayDate)) return;
     const card=document.createElement('div');
-    const isSimple=['good','weekly'].includes(habit.type)||(habit.type==='bad'&&!habit.levels);
+    const isSimple=['good','weekly','times'].includes(habit.type)||(habit.type==='bad'&&!habit.levels);
     const cardDone = habit.type!=='bad' && isHabitDoneOn(habit,t,todayDate);
     card.className='habit-card today-card'+(cardDone?' done':''); card.dataset.habitId=habit.id; card.style.setProperty('--ink',habit.color);
     const control=buildTodayControl(habit,t,todayDate);
-    const subMarkup = (cardDone && isSimple)
+    const subMarkup = (cardDone && isSimple && habit.type!=='times')
       ? `<div class="today-card-sub done-flourish">accompli !</div>`
-      : `<div class="today-card-sub">${buildTodaySubLabel(habit,t,todayDate)}</div>`;
+      : `<div class="today-card-sub${cardDone&&habit.type==='times'?' done-flourish':''}">${buildTodaySubLabel(habit,t,todayDate)}</div>`;
     card.innerHTML=`
       <div class="today-card-top">
         <div class="today-card-left">
@@ -105,13 +105,14 @@ function todayEmptyNote() {
   return `<div class="empty-note">Aucune habitude prévue aujourd'hui.<br>Appuie sur + pour en créer une.</div>`;
 }
 function buildTodaySubLabel(habit,t,todayDate) {
+  if(habit.type==='times') return timesSubLabel(habit);
   const streak=calcStreak(habit).current;
   if(habit.type==='bad') {
     const fail=isBadFail(habit.id,t);
     const bv=fail?badVal(habit.id,t):'';
     return `${fail?('Craqué'+(bv?' · '+esc(bv):'')):'Tenu bon'} · ${icon('flame')} ${streak} j`;
   }
-  return streak>0?`${icon('flame')} ${streak} jour${streak>1?'s':''} de suite`:(habit.freq||'Tous les jours');
+  return streak>0?`${icon('flame')} ${streakWords(habit,streak)} de suite`:(habit.freq||'Tous les jours');
 }
 
 function buildTodayControl(habit,t,todayDate) {
@@ -153,7 +154,7 @@ function buildTodayControl(habit,t,todayDate) {
 function renderWeeklyTab() {
   const container=document.getElementById('weeklyHabits'); if(!container) return;
   container.innerHTML='';
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
+  const todayDate=appNow(); todayDate.setHours(0,0,0,0);
   const todayDow=todayDate.getDay()===0?6:todayDate.getDay()-1;
   const monday=addDays(todayDate,-todayDow);
   liveHabits().forEach(habit=>{
@@ -182,10 +183,10 @@ function renderWeeklyTab() {
           <div class="habit-card-emoji">${habitIconMarkup(habit)}</div>
           <div>
             <div class="habit-card-name">${esc(habit.name)}</div>
-            <div class="habit-card-freq">${habit.freq||'Tous les jours'}</div>
+            <div class="habit-card-freq">${habit.type==='times'?`${habit.freq} · ${timesWeekText(habit)}`:(habit.freq||'Tous les jours')}</div>
           </div>
         </div>
-        <div class="streak-pill">${icon('flame')}${calcStreak(habit).current} j</div>
+        <div class="streak-pill">${icon('flame')}${streakLabel(habit,calcStreak(habit).current)}</div>
       </div>
       <div class="week-day-row">${daysHtml}</div>
     `;
@@ -216,7 +217,7 @@ function toggleHabitOnDate(id, dateKey, dotEl) {
 function renderOverallTab() {
   const container=document.getElementById('overallHabits'); if(!container) return;
   container.innerHTML='';
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
+  const todayDate=appNow(); todayDate.setHours(0,0,0,0);
   const numWeeks=16;
   const todayDow=todayDate.getDay()===0?6:todayDate.getDay()-1;
   const monday=addDays(todayDate,-todayDow);
@@ -239,7 +240,7 @@ function renderOverallTab() {
         if(!active||isFuture) { cls+=' inactive'+(isPaused(k)?' paused':''); if(isPaused(k)) tip+=' · pause'; }
         else if(habit.type==='bad'&&isBadFail(habit.id,k)) { cls+=' failed'; const bv=badVal(habit.id,k); tip+=' · craqué'+(bv?` (${bv})`:''); }
         else if(isHabitDoneOn(habit,k,dateObj)) { cls+=' done'; style=`background:${habit.color}`; }
-        else if(k>=DB.createdAt) { cls+=' missed'; style=`background:${habit.color}20;border:1.5px solid ${habit.color}40`; }
+        else if(k>=DB.createdAt && habit.type!=='times') { cls+=' missed'; style=`background:${habit.color}20;border:1.5px solid ${habit.color}40`; }
         gridHtml+=`<div class="${cls}" style="${style}" title="${esc(tip)}"></div>`;
       }
     });
@@ -249,10 +250,10 @@ function renderOverallTab() {
           <div class="habit-card-emoji">${habitIconMarkup(habit)}</div>
           <div>
             <div class="habit-card-name">${esc(habit.name)}</div>
-            <div class="habit-card-freq">${habit.freq||'Tous les jours'}</div>
+            <div class="habit-card-freq">${habit.type==='times'?`${habit.freq} · ${timesWeekText(habit)}`:(habit.freq||'Tous les jours')}</div>
           </div>
         </div>
-        <div class="streak-pill">${icon('flame')}${calcStreak(habit).current} j</div>
+        <div class="streak-pill">${icon('flame')}${streakLabel(habit,calcStreak(habit).current)}</div>
       </div>
       <div class="overall-dot-grid">${gridHtml}</div>
     `;

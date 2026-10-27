@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ht-v3.1.4';
+const CACHE_VERSION = 'ht-v3.2';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -20,6 +20,10 @@ const PRECACHE_ASSETS = [
   './js/shortcuts.js',
   './js/backup.js',
   './js/archive.js',
+  './js/times.js',
+  './js/reorder.js',
+  './js/detail.js',
+  './js/review.js',
   './js/day.js',
   './js/a11y.js',
   './js/app.js',

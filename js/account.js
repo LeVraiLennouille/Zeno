@@ -68,6 +68,7 @@ function renderAccount() {
   const name=esc(DB.profile.name||'Mon profil');
   const soundOn=DB.profile.soundEnabled!==false;
   const zenOn=!!DB.profile.zenMode;
+  const reviewOn=DB.profile.weeklyReview!==false;
   const notifsOn=!!DB.profile.notifsEnabled;
 
   container.innerHTML=`<div class="account-wrap">
@@ -104,6 +105,14 @@ function renderAccount() {
         <div class="pref-row">
           <div class="pref-info"><span class="pref-icon">${icon('zen')}</span><div><div class="pref-label-text">Mode zen</div><div class="pref-hint">Les habitudes terminées se replient</div></div></div>
           <button class="pref-toggle ${zenOn?'on':'off'}" onclick="togglePref('zen')">${zenOn?'Activé':'Désactivé'}</button>
+        </div>
+        <div class="pref-row">
+          <div class="pref-info"><span class="pref-icon">🌅</span><div><div class="pref-label-text">Début de journée</div><div class="pref-hint">${dayStartHint()}</div></div></div>
+          <select class="day-start-select" id="dayStartSelect" aria-label="Heure de début de journée" onchange="changeDayStart(this.value)">${dayStartOptions()}</select>
+        </div>
+        <div class="pref-row">
+          <div class="pref-info"><span class="pref-icon">📋</span><div><div class="pref-label-text">Bilan du lundi</div><div class="pref-hint">Résumé de la semaine écoulée</div></div></div>
+          <button class="pref-toggle ${reviewOn?'on':'off'}" onclick="togglePref('review')" aria-label="Bilan du lundi">${reviewOn?'Activé':'Désactivé'}</button>
         </div>
         <div class="pref-row">
           <div class="pref-info"><span class="pref-icon">${icon('bell')}</span><div><div class="pref-label-text">Notifications</div><div class="pref-hint">Rappels quotidiens</div></div></div>
@@ -150,6 +159,7 @@ function saveProfileName() {
   if(activePage==='account') renderAccount();
 }
 function togglePref(pref) {
+  if(pref==='review')   { DB.profile.weeklyReview=DB.profile.weeklyReview===false; }
   if(pref==='sound')    { DB.profile.soundEnabled=DB.profile.soundEnabled===false; }
   if(pref==='zen')      { DB.profile.zenMode=!DB.profile.zenMode; if(!DB.profile.zenMode) document.querySelectorAll('.habit-card.zen-collapse').forEach(el=>el.classList.remove('zen-collapse')); }
   saveData();
@@ -163,4 +173,23 @@ function confirmReset() {
     try { localStorage.removeItem(STORE_KEY); localStorage.removeItem(BAK_KEY); localStorage.removeItem(BAK_KEY + '.at'); } catch(e) {}
     location.reload();
   }
+}
+
+/* ── Début de journée ── */
+function dayStartOptions() {
+  const cur = DB.profile.dayStartHour || 0;
+  return [0, 1, 2, 3, 4, 5, 6].map(h => `<option value="${h}"${h === cur ? ' selected' : ''}>${h === 0 ? 'Minuit' : String(h).padStart(2, '0') + ':00'}</option>`).join('');
+}
+function dayStartHint() {
+  const h = DB.profile.dayStartHour || 0;
+  return h === 0 ? 'Les jours changent à minuit' : `Avant ${String(h).padStart(2, '0')}:00, tu es encore dans la journée de la veille`;
+}
+function changeDayStart(v) {
+  const h = Math.max(0, Math.min(6, parseInt(v, 10) || 0));
+  const before = today();
+  DB.profile.dayStartHour = h; setDayStartHour(h); saveData();
+  scheduleMidnightCheck();
+  if (today() !== before) checkDayChange(); else renderActivePage();
+  showToast(h === 0 ? 'Les jours changent à minuit' : `Ta journée commence à ${String(h).padStart(2, '0')}:00`, 3200, 'moon');
+  if (activePage === 'account') renderAccount();
 }

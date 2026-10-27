@@ -11,6 +11,7 @@ function init() {
   if (window.matchMedia && matchMedia('(display-mode: standalone)').matches) requestPersistence();
   handleLaunchAction();
   checkDailyMood();
+  maybeShowWeeklyReview();
   initNotifications();
   renderSleepSummary();
 }

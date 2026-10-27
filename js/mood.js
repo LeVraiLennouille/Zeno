@@ -2,7 +2,7 @@
  * Script classique : il partage la portée globale avec les autres fichiers de js/ (ordre de chargement : voir index.html). */
 
 function moodCalPrev() { moodCalMonth.setMonth(moodCalMonth.getMonth()-1); renderActivePage(); }
-function moodCalNext() { const nm=new Date(moodCalMonth); nm.setMonth(nm.getMonth()+1); if(nm<=new Date()) moodCalMonth=nm; renderActivePage(); }
+function moodCalNext() { const nm=new Date(moodCalMonth); nm.setMonth(nm.getMonth()+1); if(nm<=appNow()) moodCalMonth=nm; renderActivePage(); }
 
 let currentMoodDate=null;
 let selectedMoodValue=null;
@@ -13,7 +13,7 @@ function checkDailyMood() {
   sessionStorage.setItem('moodChecked','1');
   const t=today(); if(t<DB.createdAt) return;
   if(DB.moods[t]!==undefined) return;
-  setTimeout(()=>openMoodModal(t),2000);
+  whenNoDialog(()=>{ if(DB.moods[t]===undefined && today()===t) openMoodModal(t); },2000);
 }
 
 function openMoodManual() { openMoodModal(today()); }
@@ -130,7 +130,7 @@ function updateJournalCount() {
 }
 function journalKeys() { return Object.keys(DB.journal || {}).filter(k => DB.journal[k]).sort().reverse(); }
 function journalDateLabel(k) {
-  const d = parseDate(k); const y = d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : '';
+  const d = parseDate(k); const y = d.getFullYear() !== appNow().getFullYear() ? ` ${d.getFullYear()}` : '';
   return `${DAY_FULL[d.getDay()].slice(0, 3)}. ${d.getDate()} ${MONTH_SHORT[d.getMonth()].toLowerCase()}${y}`;
 }
 function journalEntryHtml(k) {

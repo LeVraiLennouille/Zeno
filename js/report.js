@@ -4,7 +4,7 @@
 /* ═══════════ Rapport interactif ═══════════ */
 const rep = { period: 'week', offset: 0, habit: 'all' };
 const REP_PERIODS = [['week', 'Semaine'], ['month', 'Mois'], ['year', 'Année']];
-const midnight = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const midnight = () => { const d = appNow(); d.setHours(0, 0, 0, 0); return d; };
 const fmtShort = d => `${d.getDate()} ${MONTH_SHORT[d.getMonth()].toLowerCase()}`;
 
 function setRepPeriod(p) { rep.period = p; rep.offset = 0; renderReport(); }
@@ -35,7 +35,7 @@ function dayStat(d, includeOptional) {
   if (d > midnight() || k < DB.createdAt) return null;
   let req = 0, done = 0, cnt = 0;
   repHabits().forEach(h => {
-    if (rep.habit === 'all' && h.optional && !includeOptional) return;
+    if (rep.habit === 'all' && (h.type === 'times' || (h.optional && !includeOptional))) return;   // « X fois / semaine » : pas de jour dû
     if (!isDayActive(h, d)) return;
     const v = getHabitDayValue(h, k, d);
     req++; if (v >= 1) cnt++;
@@ -56,13 +56,26 @@ function repStats() {
       else if (isHabitDoneOn(h, k, d)) validated++;
     });
   }
-  const streak = rep.habit === 'all'
-    ? liveHabits().reduce((m, h) => Math.max(m, calcStreak(h).current), 0)
-    : calcStreak(HABITS.find(h => h.id === rep.habit)).current;
+  const sel = rep.habit === 'all' ? null : HABITS.find(h => h.id === rep.habit);
+  const streak = !sel
+    ? liveHabits().filter(h => !weeklyUnit(h)).reduce((m, h) => Math.max(m, calcStreak(h).current), 0)   // séries en jours uniquement
+    : calcStreak(sel).current;
   const perfectDays = rep.habit === 'all'
     ? (DB.perfectDaysClaimed || []).filter(k => k >= fmtDate(start) && k <= fmtDate(end)).length
     : perfect;
+  if (sel && sel.type === 'times') {
+    const w = timesRangeStats(sel, start, end);
+    return { streak, rate: w.tot > 0 ? Math.round(w.ok / w.tot * 100) : 0, validated, perfectDays: w.ok };
+  }
   return { streak, rate: req > 0 ? Math.round(done / req * 100) : 0, validated, perfectDays };
+}
+
+// Semaines (lundi → dimanche) dont le lundi tombe dans la période : réussies / jugées.
+function timesRangeStats(h, start, end) {
+  let m = parseDate(getWeekMonday(start)); if (m < start) m = addDays(m, 7);
+  let ok = 0, tot = 0;
+  for (; m <= end; m = addDays(m, 7)) { const st = timesWeekInfo(h, fmtDate(m)).state; if (st === 'success') { ok++; tot++; } else if (st === 'failed') tot++; }
+  return { ok, tot };
 }
 
 // Points pour le graphique en barres et la courbe de réussite.
@@ -141,6 +154,7 @@ function renderReport() {
   const R = repRange(), st = repStats(), buckets = repBuckets(), cal = buildCalStats();
   const periodName = REP_PERIODS.find(p => p[0] === rep.period)[1];
   const single = rep.habit !== 'all';
+  const selH = single ? HABITS.find(h => h.id === rep.habit) : null;
   const dense = buckets.length > 12;
   const badge = `<button type="button" class="report-period-badge" onclick="cycleRepPeriod()" aria-label="Changer de période (actuelle : ${periodName})">${periodName} ${CARET}</button>`;
   const habitOpts = `<option value="all">Toutes les habitudes</option>` +
@@ -162,14 +176,15 @@ function renderReport() {
             <button type="button" class="mood-cal-nav-btn" onclick="repNav(1)" aria-label="Période suivante"${rep.offset >= 0 ? ' disabled' : ''}>${NAV_R}</button>
           </div>
           <select class="pseudo-input rep-select" aria-label="Filtrer par habitude" onchange="setRepHabit(this.value)">${habitOpts}</select>
+          ${single ? `<button type="button" class="pref-edit rep-fiche" onclick="openHabitDetail('${rep.habit}')">Voir la fiche</button>` : ''}
         </div>
       </div>
 
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-val">${st.streak}</div><div class="stat-label">Série en cours</div></div>
+        <div class="stat-card"><div class="stat-val">${st.streak}</div><div class="stat-label">${selH && weeklyUnit(selH) ? 'Série (semaines)' : 'Série en cours'}</div></div>
         <div class="stat-card"><div class="stat-val">${st.rate}%</div><div class="stat-label">Taux de réussite</div></div>
         <div class="stat-card"><div class="stat-val">${st.validated.toLocaleString('fr-FR')}</div><div class="stat-label">Habitudes validées</div></div>
-        <div class="stat-card"><div class="stat-val">${st.perfectDays}</div><div class="stat-label">${single ? 'Jours réussis' : 'Journées parfaites'}</div></div>
+        <div class="stat-card"><div class="stat-val">${st.perfectDays}</div><div class="stat-label">${selH && selH.type === 'times' ? 'Semaines réussies' : single ? 'Jours réussis' : 'Journées parfaites'}</div></div>
       </div>
 
       <div class="report-card">
@@ -225,6 +240,8 @@ function renderReport() {
         </div>
         <canvas id="moodChartReport" height="100" role="img" aria-label="Courbe d'humeur"></canvas>
       </div>
+
+      ${buildReviewCardHtml()}
 
       ${buildJournalHtml()}
 
@@ -324,7 +341,7 @@ function insightRows(days) {
     HABITS.forEach(h => {
       if (!isDayActive(h, d)) { done[h.id] = null; return; }
       const ok = isHabitDoneOn(h, k, d); done[h.id] = ok;
-      if (!h.optional) { req++; if (ok) dn++; }
+      if (isRequiredHabit(h)) { req++; if (ok) dn++; }
     });
     rows.push({ k, dow: d.getDay(), mood: DB.moods[k] == null ? null : DB.moods[k],
       sleepH: sl ? (sl.hours + (sl.minutes || 0) / 60) : null,

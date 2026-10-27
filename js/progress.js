@@ -43,30 +43,31 @@ function xpProgress(xp) {
   return {pct:Math.round(((xp-cur)/(next-cur))*100),needed:next-xp};
 }
 function giveXP(amount) {
-  const prev=calcLevel(DB.xp); DB.xp=(DB.xp||0)+amount; addSeasonXp(amount);
+  const prev=calcLevel(DB.xp); DB.xp=(DB.xp||0)+amount; addSeasonXp(amount); addWeekXp(amount);
   const nw=calcLevel(DB.xp); saveData();
   if(nw>prev){ const name=LEVEL_NAMES[nw-1]||`Niveau ${nw}`; setTimeout(()=>{ playSound('levelup'); showToast(`Niveau ${nw} atteint : ${name}`,4000,'star'); },300); }
 }
 
 function calcWeeklyStreak(habit) {
-  const cwm=getWeekMonday(new Date()); const cur=isWeeklyDoneForWeek(habit.id,cwm);
+  const cwm=getWeekMonday(appNow()); const cur=isWeeklyDoneForWeek(habit.id,cwm);
   const start=cur?0:1; let streak=0;
   for(let o=start;o<104;o++){ const wm=fmtDate(addDays(parseDate(cwm),-o*7)); if(wm<DB.createdAt) break; if(!isWeeklyDoneForWeek(habit.id,wm)){ if(weekPausedCount(wm)>=3) continue; break; } streak++; }
   return streak;
 }
 function calcStreak(habit) {
+  if(habit.type==='times') return calcTimesStreak(habit);
   if(habit.type==='weekly') { const s=calcWeeklyStreak(habit); return {current:s,longest:s}; }
   const logs=DB.habits[habit.id].logs; const todayKey=today(); const createdAt=DB.createdAt;
   if(habit.type==='bad') {
-    let streak=0; let d=new Date();
+    let streak=0; let d=appNow();
     for(let i=0;i<730;i++){ const k=fmtDate(d); if(k<createdAt) break; if(!isDayActive(habit,d)){d=addDays(d,-1);continue;} if(isBadFail(habit.id,k)) break; if(k<=todayKey) streak++; d=addDays(d,-1); }
     let best=0,run=0; let dd=new Date(parseDate(createdAt));
     while(fmtDate(dd)<=todayKey){ const k=fmtDate(dd); if(isDayActive(habit,dd)){ if(isBadFail(habit.id,k)) run=0; else { run++; best=Math.max(best,run); } } dd=addDays(dd,1); }
     return {current:streak,longest:Math.max(streak,best)};
   }
   const logDone=k=>{ if(habit.type==='drink') return isDrinkDone(k); if(habit.type==='counter') return isCounterDone(habit,k); return logs[k]==='done'; };
-  const todayDone=logDone(todayKey); const todayObj=new Date(); const todayInactive=!isDayActive(habit,todayObj); const todayEffDone=todayDone||todayInactive;
-  let d=new Date(); if(!todayEffDone) d=addDays(d,-1);
+  const todayDone=logDone(todayKey); const todayObj=appNow(); const todayInactive=!isDayActive(habit,todayObj); const todayEffDone=todayDone||todayInactive;
+  let d=appNow(); if(!todayEffDone) d=addDays(d,-1);
   let streak=0;
   for(let i=0;i<730;i++){ const k=fmtDate(d); if(k<createdAt) break; if(!isDayActive(habit,d)){d=addDays(d,-1);continue;} if(logDone(k)) streak++; else break; d=addDays(d,-1); }
   let best=0,run=0; let dd=new Date(parseDate(createdAt));
@@ -75,10 +76,10 @@ function calcStreak(habit) {
 }
 
 function countDoneToday() {
-  const t=today(); const todayDate=new Date(); todayDate.setHours(0,0,0,0);
-  return HABITS.filter(h=>!h.optional && isDayActive(h,todayDate) && isHabitDoneOn(h,t,todayDate)).length;
+  const t=today(); const todayDate=appNow(); todayDate.setHours(0,0,0,0);
+  return HABITS.filter(h=>isRequiredHabit(h) && isDayActive(h,todayDate) && isHabitDoneOn(h,t,todayDate)).length;
 }
-function requiredToday() { const todayDate=new Date(); todayDate.setHours(0,0,0,0); return HABITS.filter(h=>!h.optional&&isDayActive(h,todayDate)).length; }
+function requiredToday() { const todayDate=appNow(); todayDate.setHours(0,0,0,0); return HABITS.filter(h=>isRequiredHabit(h)&&isDayActive(h,todayDate)).length; }
 
 const ACHIEVEMENTS = [
   { id:'first_habit', emoji:'🌱', name:"Premier pas",       desc:"Valide ta première habitude",              check:()=>Object.values(DB.habits).some(h=>Object.keys(h.logs).length>0) },
@@ -108,7 +109,7 @@ const ACHIEVEMENTS = [
 ];
 
 function checkPerfectWeek() {
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
+  const todayDate=appNow(); todayDate.setHours(0,0,0,0);
   for(let w=1;w<=12;w++){
     const ws=addDays(parseDate(getWeekMonday(todayDate)),-(w*7)); const wsk=fmtDate(ws);
     if(wsk<DB.createdAt) break;
@@ -116,7 +117,7 @@ function checkPerfectWeek() {
     for(let d=0;d<7;d++){
       const dt=addDays(ws,d); if(dt>todayDate) continue;
       const k=fmtDate(dt); if(k<DB.createdAt){perfect=false;break;}
-      for(const h of HABITS){ if(h.optional) continue; if(!isDayActive(h,dt)) continue; if(getHabitDayValue(h,k,dt)!==1){perfect=false;break;} }
+      for(const h of HABITS){ if(!isRequiredHabit(h)) continue; if(!isDayActive(h,dt)) continue; if(getHabitDayValue(h,k,dt)!==1){perfect=false;break;} }
       if(!perfect) break;
     }
     if(perfect) return true;
@@ -158,7 +159,9 @@ function toggleHabit(id) {
     if(completing){DB.habits[id].logs[t]='done';giveXP(10);playSound('done');}
     else{delete DB.habits[id].logs[t];playSound('undo');}
   }
-  saveData(); checkAchievements(); afterToggle(id);
+  saveData(); checkAchievements();
+  if(habit.type==='times'&&DB.habits[id].logs[t]==='done') announceTimesGoal(habit);
+  afterToggle(id);
 }
 function checkPerfectNow() {
   const req=requiredToday();

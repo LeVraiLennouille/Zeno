@@ -2,10 +2,10 @@
  * Script classique : il partage la portée globale avec les autres fichiers de js/ (ordre de chargement : voir index.html). */
 
 /* ═══════════ Sauvegarde : export / import ═══════════ */
-const APP_VERSION = '3.1.4';
+const APP_VERSION = '3.5.0';
 const BACKUP_STALE_DAYS = 14;
 const IMPORT_MAX_BYTES = 15 * 1024 * 1024;
-const HABIT_TYPES = ['good', 'bad', 'drink', 'counter', 'weekly'];
+const HABIT_TYPES = ['good', 'bad', 'drink', 'counter', 'weekly', 'times'];
 const THEME_IDS = ['light', 'dark', 'system'];
 const PAUSE_REASON_IDS = ['sick', 'trip', 'tired', 'work', 'party', 'other'];
 const CHAL_STATUSES = ['active', 'won', 'failed', 'abandoned', 'void'];
@@ -32,6 +32,7 @@ function sanitizeHabitDef(h) {
     if (!(goal > 0 && step > 0 && max > 0 && max >= goal)) { goal = 10; step = 1; max = 20; }
     o.goal = goal; o.step = step; o.max = max; o.unit = clipStr(h.unit, 8);
   }
+  if (h.type === 'times') o.target = Math.max(1, Math.min(6, Math.floor(nOr(h.target, 3)) || 3));
   if (h.type === 'bad' && Array.isArray(h.levels)) {
     const lv = h.levels.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim().slice(0, 10)).slice(0, 8);
     if (lv.length) o.levels = lv;
@@ -74,9 +75,11 @@ function normalizeImported(raw) {
   db.profile = { name: clipStr(p.name, 40), soundEnabled: p.soundEnabled !== false, notifsEnabled: !!p.notifsEnabled, zenMode: !!p.zenMode,
     darkMode: !!p.darkMode, themeMode: THEME_IDS.includes(p.themeMode) ? p.themeMode : (p.darkMode === true ? 'dark' : 'light'),
     pauseQuota: Math.min(10, Math.max(0, Math.floor(nOr(p.pauseQuota, 3)))),
+    dayStartHour: Math.min(6, Math.max(0, Math.floor(nOr(p.dayStartHour, 0)))), weeklyReview: p.weeklyReview !== false,
     moodFeelings: mapDates(p.moodFeelings, v => typeof v === 'string' ? v.slice(0, 200) : undefined) };
   if (typeof p.lastBackup === 'string' && !isNaN(Date.parse(p.lastBackup))) db.profile.lastBackup = p.lastBackup;
   if (isDateKey(p.backupSnooze)) db.profile.backupSnooze = p.backupSnooze;
+  if (isDateKey(p.reviewedWeek)) db.profile.reviewedWeek = p.reviewedWeek;
 
   // Habitudes (les anciennes sauvegardes sans définitions repartent des habitudes par défaut)
   let defs = Array.isArray(raw.habitDefs) ? raw.habitDefs.map(sanitizeHabitDef).filter(Boolean) : JSON.parse(JSON.stringify(DEFAULT_HABITS));
@@ -93,6 +96,7 @@ function normalizeImported(raw) {
   db.moods = mapDates(raw.moods, v => Number.isInteger(v) && v >= 1 && v <= 5 ? v : undefined);
   db.journal = mapDates(raw.journal, v => typeof v === 'string' && v.trim() ? v.slice(0, 600) : undefined);
   db.pauses = mapDates(raw.pauses, v => ({ reason: isPlainObj(v) && PAUSE_REASON_IDS.includes(v.reason) ? v.reason : 'other' }));
+  db.xpWeek = mapDates(raw.xpWeek, v => Number.isFinite(v) && v >= 0 && v <= 1e7 ? Math.floor(v) : undefined);
   db.meditation = mapDates(raw.meditation, v => Number.isFinite(v) && v >= 0 && v <= 1440 ? v : undefined);
   db.sleepLog = mapDates(raw.sleepLog, v => isPlainObj(v) && Number.isFinite(v.hours)
     ? { hours: Math.min(24, Math.max(0, v.hours)), minutes: Math.min(59, Math.max(0, nOr(v.minutes, 0))), bedtime: clipStr(v.bedtime, 5), wakeTime: clipStr(v.wakeTime, 5) } : undefined);
@@ -296,4 +300,4 @@ function renderBackupNudge() {
     <button type="button" class="pause-btn" onclick="exportData()">Sauvegarder</button>
     <button type="button" class="backup-x" onclick="snoozeBackupNudge()" aria-label="Me le rappeler dans 7 jours">✕</button></div>`;
 }
-function snoozeBackupNudge() { DB.profile.backupSnooze = fmtDate(addDays(new Date(), 7)); saveData(); renderBackupNudge(); }
+function snoozeBackupNudge() { DB.profile.backupSnooze = fmtDate(addDays(appNow(), 7)); saveData(); renderBackupNudge(); }

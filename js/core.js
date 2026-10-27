@@ -91,7 +91,12 @@ const fmtDate = d => {
 };
 const parseDate = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); };
 const addDays   = (d,n) => { const r=new Date(d); r.setDate(r.getDate()+n); return r; };
-const today     = () => fmtDate(new Date());
+// « Maintenant » vu par l'app : décalé de l'heure de début de journée (0–6 h, réglable).
+// Variable dédiée (et non DB) : today() sert déjà dans loadData(), avant que DB n'existe.
+let _dayStartHour = 0;
+function setDayStartHour(h) { _dayStartHour = Math.max(0, Math.min(6, Math.floor(Number(h)) || 0)); }
+const appNow    = () => new Date(Date.now() - _dayStartHour * 3600000);
+const today     = () => fmtDate(appNow());
 const isWeekend = d => { const dow=d.getDay(); return dow===0||dow===6; };
 const isDayActive = (habit, dateObj) => {
   if (habit.since && fmtDate(dateObj) < habit.since) return false;
@@ -161,6 +166,10 @@ if(!DB.moods) DB.moods={};
 if(!DB.perfectDaysClaimed) DB.perfectDaysClaimed=[];
 if(!DB.penaltiesApplied) DB.penaltiesApplied=[];
 if(DB.profile.notifsEnabled===undefined) DB.profile.notifsEnabled=false;
+if(DB.profile.dayStartHour===undefined) DB.profile.dayStartHour=0;
+if(DB.profile.weeklyReview===undefined) DB.profile.weeklyReview=true;
+if(!DB.xpWeek) DB.xpWeek={};
+setDayStartHour(DB.profile.dayStartHour);
 if(DB.profile.themeMode===undefined) DB.profile.themeMode = DB.profile.darkMode===undefined ? 'system' : (DB.profile.darkMode===true ? 'dark' : 'light');
 if(DB.profile.darkMode===undefined) DB.profile.darkMode=false;
 if(!DB.pauses) DB.pauses={};

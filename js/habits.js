@@ -3,8 +3,9 @@
 
 function renderMyHabits() {
   const container=document.getElementById('myHabitsContent'); if(!container) return;
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
+  const todayDate=appNow(); todayDate.setHours(0,0,0,0);
   const t=today();
+  if(reorderMode && liveHabits().length>0){ renderReorderList(container); return; }
   if(liveHabits().length===0){ container.innerHTML=`<div class="empty-note">Aucune habitude pour l'instant.<br>Appuie sur + pour créer la première.</div>${archivedSectionHtml()}`; return; }
   container.innerHTML=`<div class="my-habits-list">
     ${liveHabits().map(h=>{
@@ -13,13 +14,14 @@ function renderMyHabits() {
       const live=h.type==='drink'||h.type==='counter';
       const inert=h.type==='bad'&&!!h.levels;
       let meta=h.freq||'Tous les jours';
+      if(h.type==='times') meta=timesWeekText(h);
       if(live){ const p=habitProgress(h,t); meta=`${fmtNum(p.v)} / ${fmtNum(p.goal)} ${p.unit}`; }
       if(h.type==='bad'){ const f=isBadFail(h.id,t); const bv=badVal(h.id,t); meta=f?('Craqué'+(bv?' · '+esc(bv):'')):'Tenu bon'; }
       return `<div class="my-habit-row" data-habit-id="${h.id}" style="--ink:${h.color}">
-        <div class="my-habit-emoji">${habitIconMarkup(h)}</div>
+        <button type="button" class="my-habit-emoji my-habit-open" onclick="openHabitDetail('${h.id}')" aria-label="Voir la fiche de ${esc(h.name)}">${habitIconMarkup(h)}</button>
         <div class="my-habit-info">
-          <div class="my-habit-name">${esc(h.name)}</div>
-          <div class="my-habit-meta"><span>${meta}</span><span class="streak-inline">${icon('flame')}${streak} j</span></div>
+          <div class="my-habit-name"><button type="button" class="my-habit-open" onclick="openHabitDetail('${h.id}')">${esc(h.name)}</button></div>
+          <div class="my-habit-meta"><span>${meta}</span><span class="streak-inline">${icon('flame')}${streakLabel(h,streak)}</span></div>
           ${live?progressBar(Math.min(100,Math.round(dayProgress(h,t,todayDate)*100)),h.name).replace('class="pbar"','class="pbar pbar-thin"'):''}
         </div>
         <button type="button" class="my-habit-edit" onclick="openHabitForm('${h.id}')" aria-label="Modifier ${esc(h.name)}">${icon('edit')}</button>
@@ -44,6 +46,7 @@ const KIND_INFO = [
   { k:'water',   label:'Eau',           hint:'Une boisson, en ml' },
   { k:'weekly',  label:'Hebdomadaire',  hint:'Une fois par semaine suffit' },
   { k:'bad',     label:'À éviter',      hint:'Un comportement à limiter' },
+  { k:'times',   label:'X fois / semaine', hint:'Quels que soient les jours' },
 ];
 const KIND_DEFAULTS = {
   counter: { goal:10,   step:1,   max:20,   unit:'' },
@@ -86,6 +89,7 @@ function openHabitForm(id) {
       days:habitDays(h), daysTouched:false, optional:!!h.optional,
       goal:nz(h.goal,''), step:nz(h.step,''), max:nz(h.max,''), unit:h.unit || '',
       levels:(h.levels || []).join(', '), badMode:h.levels ? 'levels' : 'simple',
+      target:nz(h.target,3),
     };
   } else {
     const used = HABITS.map(x => x.color);
@@ -95,6 +99,7 @@ function openHabitForm(id) {
       days:ALL_DAYS.slice(), daysTouched:true, optional:false,
       goal:'', step:'', max:'', unit:'',
       levels:'', badMode:'simple',
+      target:3,
     };
   }
   document.getElementById('habitFormTitle').textContent = h ? 'Modifier l’habitude' : 'Nouvelle habitude';
@@ -171,7 +176,15 @@ function renderHabitForm() {
       </div>
     </div>`;
 
-  const daysBlock = k === 'weekly' ? '' : `
+  const timesBlock = k !== 'times' ? '' : `
+    <div class="modal-section">
+      <label class="modal-label">Objectif par semaine</label>
+      <div class="hf-days" role="group" aria-label="Nombre de fois par semaine">
+        ${[1, 2, 3, 4, 5, 6].map(n => `<button type="button" class="hf-day${hf.target === n ? ' selected' : ''}" aria-pressed="${hf.target === n}" onclick="hfSet('target',${n})">${n}</button>`).join('')}
+      </div>
+      <div class="hf-hint"><b>${hf.target} fois par semaine</b> (du lundi au dimanche), peu importe les jours. Tu coches chaque séance ; la série compte les <b>semaines réussies</b>.</div>
+    </div>`;
+  const daysBlock = (k === 'weekly' || k === 'times') ? '' : `
     <div class="modal-section">
       <label class="modal-label">Jours actifs</label>
       <div class="hf-days" role="group" aria-label="Jours actifs">
@@ -222,6 +235,7 @@ function renderHabitForm() {
     ${kindBlock}
     ${emojiBlock}
     ${colorBlock}
+    ${timesBlock}
     ${daysBlock}
     ${goalBlock}
     ${badBlock}
@@ -250,7 +264,7 @@ function saveHabitForm() {
   const k = hf.kind;
   const counterLike = k === 'counter' || k === 'water' || k === 'drink';
   const waterLike   = k === 'water' || k === 'drink';
-  if (k !== 'weekly' && hf.days.length === 0) { showToast('Choisis au moins un jour', 2800, 'alert'); return; }
+  if (k !== 'weekly' && k !== 'times' && hf.days.length === 0) { showToast('Choisis au moins un jour', 2800, 'alert'); return; }
 
   let goal, step, max;
   if (counterLike) {
@@ -275,6 +289,7 @@ function saveHabitForm() {
       optional: hf.optional, weekdayOnly: false,
     };
     if (k === 'weekly') h.freq = 'Chaque semaine';
+    else if (k === 'times') { h.target = Math.max(1, Math.min(TIMES_MAX, Math.floor(hf.target) || 3)); h.freq = `${h.target} fois par semaine`; }
     else {
       if (hf.days.length < 7) h.activeDays = hf.days.slice();
       h.freq = daysLabel(hf.days);
@@ -298,7 +313,8 @@ function saveHabitForm() {
   if (!hf.builtin) h.emoji = (hf.emoji || '').trim() || '⭐';
   if (counterLike) { h.goal = goal; h.step = step; h.max = max; h.unit = unit; }
   if (k === 'bad') { if (levels) h.levels = levels; else delete h.levels; }
-  if (k !== 'weekly' && hf.daysTouched) {
+  if (k === 'times') { h.target = Math.max(1, Math.min(TIMES_MAX, Math.floor(hf.target) || 3)); h.freq = `${h.target} fois par semaine`; }
+  if (k !== 'weekly' && k !== 'times' && hf.daysTouched) {
     h.weekdayOnly = false;
     if (hf.days.length === 7) delete h.activeDays; else h.activeDays = hf.days.slice();
     h.freq = daysLabel(hf.days);

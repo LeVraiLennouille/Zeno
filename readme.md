@@ -47,6 +47,7 @@ Un dock flottant en bas de l'écran donne accès à cinq pages : **Accueil**, **
 | **Compteur** (`counter`) | Pas (`step`), objectif (`goal`), maximum (`max`) et unité configurables par habitude ; barre de progression et bouton − . |
 | **Hebdomadaire** (`weekly`) | Une seule validation suffit pour la semaine (Lun–Dim) ; la série se compte en semaines. |
 | **À éviter** (`bad`) | La journée est **validée par défaut** ; un échec casse la série. Deux modes : *simple* (un tap = échec, un second l'annule) ou *par durée* (voir ci-dessous). |
+| **X fois par semaine** (`times`) | Objectif **hebdomadaire** (1 à 6 séances du lundi au dimanche, **peu importe les jours**) ; on coche chaque séance comme une case à cocher. La série compte les **semaines réussies**. Voir [ci-dessous](#24--habitudes--x-fois-par-semaine-). |
 
 **Habitudes « à éviter » par durée :** une rangée de paliers s'affiche sur la carte, **Non** (aucun écart, journée validée) puis les paliers de ton choix (ex. *15 min · 30 min · 1 h · 2 h · +3 h*, jusqu'à 8 paliers de 10 caractères). Choisir **Non** valide la journée ; tout autre palier enregistre un **échec** avec sa valeur : la série est cassée et la case de la grille *Global* devient rouge, la valeur apparaissant au survol. Les bad habits comptent dans la journée parfaite (sauf si marquées *optionnelles*), n'ont pas de XP propre et alimentent le succès « Maîtrise de soi ».
 
@@ -68,9 +69,9 @@ Les habitudes limitées aux jours ouvrés (`weekdayOnly`) ou à des jours préci
 **10 niveaux** (puis la [saison](#20--défis-et-saisons) prend le relais) : Novice → Apprenti → Pratiquant → Fervent → Discipliné → Concentré → Maître → Grand maître → Légende → Transcendant.
 **Seuils d'XP :** 0 · 100 · 250 · 500 · 800 · 1 200 · 1 700 · 2 400 · 3 200 · 4 200.
 
-**Séries :** calculées par habitude (en jours, ou en semaines pour l'hebdomadaire) en ignorant les jours inactifs ; la série du jour n'est pas cassée tant que la journée n'est pas terminée. La série la plus longue est également conservée. Un **jour de pause** gèle les séries (il est ignoré comme un jour inactif).
+**Séries :** calculées par habitude (en jours ; en **semaines** pour les habitudes hebdomadaires et « X fois par semaine », affichées avec l'unité `sem`) en ignorant les jours inactifs ; la série du jour n'est pas cassée tant que la journée n'est pas terminée. La série la plus longue est également conservée. Un **jour de pause** gèle les séries (il est ignoré comme un jour inactif).
 
-**Journée parfaite :** toutes les habitudes non optionnelles actives du jour sont validées → confettis, fanfare et bonus d'XP.
+**Journée parfaite :** toutes les habitudes non optionnelles actives du jour sont validées (les habitudes « X fois par semaine » n'ont pas de jour dû : elles n'y entrent pas) → confettis, fanfare et bonus d'XP.
 
 ### 5. 🏆 Succès
 
@@ -139,6 +140,7 @@ Tout le rapport suit trois commandes en haut de page :
 | **Calendrier du mois** | Parfait · bon (≥ 70 %) · manqué ; les **jours de pause** sont hachurés et exclus des calculs |
 | **Calendrier d'humeur** | Navigation mois par mois et saisie rétroactive |
 | **Courbe d'humeur** | Journalière (semaine, mois) ou moyenne mensuelle (année) |
+| **Bilan hebdomadaire** | Score de la semaine passée et accès au bilan complet (voir [Bilan hebdomadaire](#28--bilan-hebdomadaire)) |
 | **Journal** | Notes attachées à l'humeur, avec recherche (voir [Humeur](#6--humeur)) |
 | **Insights** | Voir [Insights croisés](#19--insights-croisés) |
 
@@ -178,6 +180,8 @@ Accessibles depuis la page **Compte** et la fenêtre de profil (⋮).
 | **Nom d'affichage** | Prénom ou pseudo affiché dans le profil |
 | **Thème** | **Clair**, **Sombre** ou **Auto** (suit le réglage de l'appareil en direct, via `prefers-color-scheme`) |
 | **Jours de pause** | Quota mensuel de jours de repos (0 à 10, 3 par défaut) |
+| **Début de journée** | Heure à laquelle la « journée » change : minuit (défaut) à 06:00 (voir [Début de journée](#25--début-de-journée)) |
+| **Bilan du lundi** | Active ou coupe le bilan hebdomadaire automatique |
 | **Effets sonores** | Active ou coupe tous les sons |
 | **Mode zen** | Les habitudes terminées se replient dans l'onglet Aujourd'hui |
 | **Notifications** | Rappels quotidiens (voir ci-dessous) |
@@ -235,7 +239,7 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 - Installable sur iOS (Safari → « Sur l'écran d'accueil ») et Android/desktop (Chrome).
 - **Raccourcis d'icône** (appui long) : voir [Raccourcis PWA](#21--raccourcis-pwa).
 - Mode `standalone`, orientation portrait, langue `fr`, prise en charge des zones sécurisées (encoche, barre d'accueil).
-- **Hors-ligne** via le Service Worker (`ht-v3.4.1`) :
+- **Hors-ligne** via le Service Worker (`ht-v3.2`) :
   - HTML : réseau d'abord, repli sur le cache ;
   - fichiers locaux (CSS, JS, icônes, manifeste) : cache d'abord, précachés à l'installation ;
   - Google Fonts : *stale-while-revalidate*.
@@ -248,7 +252,7 @@ Toutes les données (historique, définitions des habitudes, rappels, profil, XP
 
 ### 17. ♿ Accessibilité & confort
 
-- **Fenêtres (9 modales, feuilles et écrans plein format) :** rôle `dialog` + `aria-modal` et titre associé ; à l'ouverture le **focus entre dans la fenêtre** (premier champ utile) et le reste de l'app devient **inerte** (`inert` + `aria-hidden`), donc ni clavier ni lecteur d'écran ne s'en échappent ; **Tab / Maj+Tab restent piégés** dans la fenêtre ; **Échap** ferme la fenêtre du dessus (comme le bouton ✕) et le **focus revient** à l'élément qui l'avait ouverte. Les fenêtres fermées sont inertes : Tab n'y entre jamais.
+- **Fenêtres (11 modales, feuilles et écrans plein format) :** rôle `dialog` + `aria-modal` et titre associé ; à l'ouverture le **focus entre dans la fenêtre** (premier champ utile) et le reste de l'app devient **inerte** (`inert` + `aria-hidden`), donc ni clavier ni lecteur d'écran ne s'en échappent ; **Tab / Maj+Tab restent piégés** dans la fenêtre ; **Échap** ferme la fenêtre du dessus (comme le bouton ✕) et le **focus revient** à l'élément qui l'avait ouverte. Les fenêtres fermées sont inertes : Tab n'y entre jamais.
 - Boutons d'icône nommés, barres de progression avec rôle ARIA, toasts annoncés (`role="status"`), zone live pour les phases de respiration.
 - Respect de `prefers-reduced-motion`.
 
@@ -329,7 +333,62 @@ Dans **Compte → Sauvegarde**. Vider le cache ou changer de téléphone ne doit
 
 ### 23. 🕛 Changement de jour
 
-Si l'app reste ouverte ou en arrière-plan après minuit, l'écran se met à jour tout seul : cartes remises à zéro, défis évalués, rappels replanifiés, date du jour. Le changement est détecté par un minuteur calé sur minuit, une vérification toutes les 60 s (filet de sécurité en cas de veille ou de changement d'heure) et au retour dans l'app (visibilité, focus). L'invite d'humeur du nouveau jour n'apparaît qu'**au retour de l'utilisateur**, jamais en pleine nuit.
+Si l'app reste ouverte ou en arrière-plan après le changement de jour (minuit, ou l'[heure de début de journée](#25--début-de-journée) réglée), l'écran se met à jour tout seul : cartes remises à zéro, défis évalués, rappels replanifiés, date du jour. Le changement est détecté par un minuteur calé sur minuit, une vérification toutes les 60 s (filet de sécurité en cas de veille ou de changement d'heure) et au retour dans l'app (visibilité, focus). L'invite d'humeur du nouveau jour n'apparaît qu'**au retour de l'utilisateur**, jamais en pleine nuit.
+
+### 24. 🔢 Habitudes « X fois par semaine »
+
+Pour « 3 séances de gym, quels que soient les jours » : un type entre « tous les jours » et « une fois par semaine ».
+
+- **Création :** type *X fois / semaine* puis un objectif de **1 à 6** ; aucun jour actif à choisir. L'objectif reste modifiable ensuite.
+- **Suivi :** chaque séance se coche au jour où elle a lieu (Aujourd'hui, ou les pastilles de l'onglet Semaine pour rattraper un jour). La carte affiche la progression `●●○ 2/3 cette semaine` et se colore quand la séance du jour est cochée. **+10 XP par séance**, et une annonce quand l'objectif de la semaine est atteint.
+- **Semaine (lundi → dimanche)** : *réussie* dès que l'objectif est atteint ; *encore possible* tant qu'il reste assez de jours ; *manquée* quand il n'est plus atteignable (par ex. 0/3 le samedi) ; *sans objet* si elle est entièrement en pause ou antérieure à l'habitude.
+- **Série** = nombre de semaines réussies d'affilée. Une semaine devenue impossible casse la série tout de suite ; une semaine « sans objet » est ignorée. Quand une semaine est en partie en pause ou archivée, l'objectif est ramené au nombre de jours actifs.
+- **Pas de jour dû** : l'habitude n'entre ni dans la journée parfaite, ni dans le score quotidien du Rapport. Pour elle, le Rapport affiche des **semaines réussies** (« Série (semaines) », « Semaines réussies »). Le bilan hebdomadaire, lui, la compte pour ses séances (`min(séances, objectif)` sur `objectif`).
+- Un **rappel** lié est ignoré quand l'objectif de la semaine est déjà atteint. Les défis ne sont pas proposés pour ce type.
+
+### 25. 🌅 Début de journée
+
+Si tu te couches à 1 h, ta journée ne devrait pas changer à minuit. Dans **Compte → Début de journée**, choisis une heure de **minuit à 06:00** : avant cette heure, tu es encore dans la journée de la veille.
+
+- Tout ce qui dépend de « aujourd'hui » suit : cartes, séries, humeur, sommeil, pauses, défis, saisons, XP de la semaine, semaines du Rapport et du bilan. Les données passées ne sont **pas** modifiées : seule la frontière entre deux jours bouge.
+- Le changement de jour est détecté à cette heure (minuteur, vérification toutes les 60 s et retour dans l'app), plus à minuit.
+- Les **rappels** et les minuteurs (méditation…) restent en heure réelle, les horodatages (sauvegarde) aussi.
+- Le réglage est exporté et importé avec les données ; il est borné entre 0 et 6.
+
+### 26. ↕️ Réorganiser les habitudes
+
+Sur la page **Habitudes**, le bouton ↕ en haut à droite active le mode *réorganisation*. L'ordre choisi s'applique **partout** (Aujourd'hui, Semaine, Global, Rapport, rappels…) et il est sauvegardé et exporté avec les données.
+
+- **Glisser-déposer** de la poignée ⠿ : souris, doigt (événements pointeur, `touch-action: none` sur la poignée pour ne pas faire défiler la page) ou stylet ; les autres lignes s'écartent pendant le glissement et la page défile près des bords.
+- **Boutons ↑ ↓** sur chaque ligne, et **clavier** : sur la poignée, les flèches haut/bas déplacent l'habitude ; la nouvelle position est annoncée aux lecteurs d'écran.
+- Les habitudes **archivées** gardent leur emplacement et sont masquées pendant la réorganisation.
+
+### 27. 🔍 Fiche détaillée d'une habitude
+
+Touche le **nom** ou l'**icône** d'une habitude sur la page Habitudes (ou « Voir la fiche » dans le Rapport quand elle est filtrée).
+
+| Bloc | Contenu |
+|---|---|
+| **Tuiles** | Série en cours, meilleure série, taux sur 30 jours (8 semaines pour les hebdomadaires), et un total adapté au type : jours réussis, total cumulé (compteurs, eau), craquages (à éviter), séances (X fois par semaine) |
+| **Grille annuelle** | Un carré par jour (colonnes = semaines), navigation d'année en année. Plein = fait, translucide = partiel (compteurs), gris = manqué, rouge = craquage, hachuré = pause. S'ouvre sur la période en cours |
+| **Jour de la semaine** | Taux de réussite par jour sur 12 semaines, avec ton jour le plus fort et le plus faible (« le plus risqué » pour une habitude à éviter) ; il faut au moins 3 occurrences par jour |
+| **Évolution** | Courbe hebdomadaire sur 26 semaines |
+| **Humeur** | Humeur moyenne les jours où l'habitude est faite ou non (si l'écart est d'au moins 0,2) |
+| **Écarts** | Pour une habitude à éviter par durée : répartition des paliers choisis |
+
+Les habitudes archivées restent consultables. Le bouton *Modifier l'habitude* ouvre le formulaire.
+
+### 28. 📋 Bilan hebdomadaire
+
+Chaque semaine, au premier lancement après sa fin (en pratique le lundi), une fenêtre résume la **semaine écoulée** (lundi → dimanche) :
+
+- **Score** (objectifs atteints sur objectifs prévus, habitudes optionnelles exclues) avec l'évolution en points par rapport à la semaine précédente et un verdict (exceptionnelle ≥ 90 %, belle ≥ 70 %, correcte ≥ 50 %, difficile en dessous) ;
+- **Meilleure série** du moment, **XP gagnée** dans la semaine, **journées parfaites** et **humeur moyenne** ;
+- **Saison** : rang, progression et XP restante pour le rang suivant ;
+- **À retravailler** : l'habitude la moins tenue (avec un bouton *Lancer un défi* quand le type le permet) ou « rien à signaler », et le **meilleur jour** ;
+- un bouton **Copier le résumé** (texte prêt à partager).
+
+Règles : il s'affiche **une seule fois par semaine**, jamais en pleine nuit (au retour dans l'app), attend la fermeture d'une éventuelle autre fenêtre (l'invite d'humeur passe après) et n'apparaît que s'il y a assez de données (au moins 3 jours actifs). On peut le rouvrir à tout moment depuis la carte **Bilan hebdomadaire** du Rapport (sans modifier la semaine « déjà vue ») et le désactiver dans Compte. L'XP de la semaine est suivie à partir de cette version : une semaine antérieure affiche « – ».
 
 ## 🎨 Direction artistique « Encre »
 
@@ -344,7 +403,7 @@ Si l'app reste ouverte ou en arrière-plan après minuit, l'écran se met à jou
 
 ```
 habitstracker/
-├── index.html          # Structure des pages, 9 fenêtres (humeur, profil, sommeil, habitude, rappel, pause, défi, respiration, méditation)
+├── index.html          # Structure des pages, 11 fenêtres (humeur, profil, sommeil, habitude, rappel, pause, défi, fiche, bilan, respiration, méditation)
 ├── style.css           # Design system « Encre » (variables CSS, thèmes clair / sombre)
 ├── sw.js               # Service Worker (cache, hors-ligne, clic sur notification)
 ├── manifest.json       # Manifeste PWA (icônes, raccourcis d'icône)
@@ -364,6 +423,10 @@ habitstracker/
 │   ├── shortcuts.js    # Raccourcis PWA
 │   ├── backup.js       # Export / import, stockage persistant, rappel de sauvegarde
 │   ├── archive.js      # Toast « Annuler » et archivage
+│   ├── times.js        # Habitudes « X fois par semaine »
+│   ├── reorder.js      # Réorganisation (glisser-déposer, boutons, clavier)
+│   ├── detail.js       # Fiche détaillée d'une habitude
+│   ├── review.js       # Bilan hebdomadaire
 │   ├── day.js          # Changement de jour
 │   ├── a11y.js         # Accessibilité des fenêtres
 │   └── app.js          # Initialisation
@@ -382,20 +445,7 @@ habitstracker/
 
 ---
 
-## ▶️ Lancer le projet
-
-Le Service Worker nécessite `https://` ou `http://localhost` :
-
-```bash
-# depuis le dossier du projet
-python3 -m http.server 8000
-# puis ouvrir http://localhost:8000
-```
-
----
-
 ## 🧭 À venir
 
 - Rappels Web Push (notifications app fermée, nécessite un petit serveur)
 - Conversion en modules ES (nécessite de remplacer les `onclick` inline par une délégation d'événements)
-- Réorganisation des habitudes par glisser-déposer

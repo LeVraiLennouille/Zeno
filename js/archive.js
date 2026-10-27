@@ -37,7 +37,7 @@ function archiveHabit(id) {
 function restoreHabit(id, opts) {
   opts = opts || {};
   const h = HABITS.find(x => x.id === id); if (!h || !h.archived) return;
-  const t = today(), yest = fmtDate(addDays(new Date(), -1));
+  const t = today(), yest = fmtDate(addDays(appNow(), -1));
   // On referme la plage ouverte à hier : les jours archivés restent « hors plage » (ni réussis, ni manqués).
   h.gaps = (h.gaps || []).map(g => g.to ? g : (g.from >= t ? null : { from: g.from, to: yest })).filter(g => g && (!g.to || g.to >= g.from));
   delete h.archived; delete h.archivedOn;
@@ -87,7 +87,7 @@ function archivedSectionHtml() {
     <div class="archived-list">${list.map(h => `<div class="archived-row" data-habit-id="${h.id}">
       <div class="archived-emoji" style="--ink:${h.color}">${habitIconMarkup(h)}</div>
       <div class="archived-info"><div class="archived-name">${esc(h.name)}</div>
-        <div class="archived-meta">${h.archivedOn ? `Archivée le ${fmtDay(h.archivedOn)} · ` : ''}meilleure série ${calcStreak(h).longest} j</div></div>
+        <div class="archived-meta">${h.archivedOn ? `Archivée le ${fmtDay(h.archivedOn)} · ` : ''}meilleure série ${streakLabel(h, calcStreak(h).longest)}</div></div>
       <button type="button" class="pref-edit" onclick="restoreHabit('${h.id}')">Restaurer</button>
       <button type="button" class="archived-del" onclick="purgeHabit('${h.id}')" aria-label="Supprimer définitivement ${esc(h.name)}">${icon('trash')}</button>
     </div>`).join('')}</div>
