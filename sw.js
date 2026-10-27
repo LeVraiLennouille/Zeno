@@ -1,8 +1,8 @@
-const CACHE_VERSION="ht-v3.3";
+const CACHE_VERSION="ht-v3.4";
 const STATIC_CACHE=`${CACHE_VERSION}-static`;
 const RUNTIME_CACHE=`${CACHE_VERSION}-runtime`;
-const PRECACHE_ASSETS=["./index.html","./style.css","./js/core.js","./js/theme.js","./js/progress.js","./js/home.js","./js/mood.js","./js/report.js","./js/habits.js","./js/account.js","./js/reminders.js","./js/wellness.js","./js/pause.js","./js/challenges.js","./js/shortcuts.js","./js/backup.js","./js/archive.js","./js/times.js","./js/reorder.js","./js/detail.js","./js/review.js","./js/day.js","./js/a11y.js","./js/app.js","./manifest.json","./assets/icon-192.png","./assets/icon-512.png","./assets/icon-512-maskable.png","./assets/apple-touch-icon.png"];
-const CACHEABLE_ORIGINS=["https://fonts.googleapis.com","https://fonts.gstatic.com"];
+const PRECACHE_ASSETS=["./index.html","./style.css","./js/core.js","./js/theme.js","./js/progress.js","./js/home.js","./js/mood.js","./js/report.js","./js/habits.js","./js/account.js","./js/reminders.js","./js/wellness.js","./js/pause.js","./js/challenges.js","./js/shortcuts.js","./js/backup.js","./js/archive.js","./js/times.js","./js/reorder.js","./js/detail.js","./js/review.js","./js/day.js","./js/a11y.js","./js/app.js","./manifest.json","./assets/icon-192.png","./assets/icon-512.png","./assets/icon-512-maskable.png","./assets/apple-touch-icon.png","./assets/z.svg","./assets/fonts/BricolageGrotesque.ttf","./assets/fonts/InstrumentSans.ttf"];
+const CACHEABLE_ORIGINS=[];
 self.addEventListener("notificationclick",n=>{n.notification.close();const t=(n.notification.data||{}).url||"./";n.waitUntil(clients.matchAll({type:"window",includeUncontrolled:!0}).then(o=>{for(const i of o)if("focus"in i)return i.focus();if(clients.openWindow)return clients.openWindow(t)}))});
 self.addEventListener("install",e=>{e.waitUntil(caches.open(STATIC_CACHE).then(n=>n.addAll(PRECACHE_ASSETS)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",t=>{const c=[STATIC_CACHE,RUNTIME_CACHE];t.waitUntil(caches.keys().then(l=>Promise.all(l.filter(e=>!c.includes(e)).map(e=>caches.delete(e)))).then(()=>self.clients.claim()))});

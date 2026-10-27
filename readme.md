@@ -239,10 +239,10 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 - Installable sur iOS (Safari → « Sur l'écran d'accueil ») et Android/desktop (Chrome).
 - **Raccourcis d'icône** (appui long) : voir [Raccourcis PWA](#21--raccourcis-pwa).
 - Mode `standalone`, orientation portrait, langue `fr`, prise en charge des zones sécurisées (encoche, barre d'accueil).
-- **Hors-ligne** via le Service Worker (`ht-v3.3`) :
+- **Hors-ligne** via le Service Worker (`ht-v3.4`) :
   - HTML : réseau d'abord, repli sur le cache ;
   - fichiers locaux (CSS, JS, icônes, manifeste) : cache d'abord, précachés à l'installation ;
-  - Google Fonts : *stale-while-revalidate*.
+  - Polices : hébergées en local (`assets/fonts/`) et précachées.
 - Anciennes versions du cache supprimées automatiquement à l'activation.
 - Icônes `any` et `maskable`, icône Apple Touch.
 
@@ -393,7 +393,7 @@ Règles : il s'affiche **une seule fois par semaine**, jamais en pleine nuit (au
 ## 🎨 Direction artistique « Encre »
 
 - **Principe :** interface en noir et blanc, la couleur appartient aux habitudes. Chaque habitude a son encre ; une carte validée se remplit de cette couleur.
-- **Typographies :** Bricolage Grotesque (titres et chiffres) et Instrument Sans (texte), chargées depuis Google Fonts.
+- **Typographies :** Bricolage Grotesque (titres et chiffres) et Instrument Sans (texte), hébergées en local dans `assets/fonts/` (`BricolageGrotesque.ttf`, `InstrumentSans.ttf`).
 - **Thèmes :** clair (papier gris froid) et sombre, mêmes encres dans les deux ; le mode **Auto** suit l'appareil, y compris la couleur de la barre du navigateur, sans flash au chargement.
 - **Retours visuels :** confettis (Canvas) pour la journée parfaite, animations de validation, repli en mode zen.
 
@@ -441,7 +441,7 @@ zeno/
 
 **Stack :** HTML · CSS · JavaScript vanilla · Web Audio API · Canvas API · Service Worker API · Web Notifications API · localStorage.
 
-**Aucun framework, aucun bundler, aucun serveur.** La seule ressource externe est la police Google Fonts (mise en cache par le Service Worker pour l'usage hors-ligne).
+**Aucun framework, aucun bundler, aucun serveur.** Aucune ressource externe : les polices sont hébergées en local.
 
 ---
 

@@ -23,7 +23,7 @@ function renderAchievementsList(){const c=document.getElementById("achBody");if(
   </div>`}
 function renderAccount(){const i=document.getElementById("accountContent");if(!i)return;const s=calcLevel(DB.xp),e=xpProgress(DB.xp),n=esc(DB.profile.name||"Mon profil"),a=DB.profile.soundEnabled!==!1,t=!!DB.profile.zenMode,c=DB.profile.weeklyReview!==!1,l=!!DB.profile.notifsEnabled;i.innerHTML=`<div class="account-wrap">
     <div class="account-profile-card">
-      <div class="account-avatar">${icon("user")}</div>
+      <button type="button" class="account-avatar" onclick="openAvatarPicker()" aria-label="Changer l’avatar">${esc(avatarEmoji())}</button>
       <div class="account-name">${n}</div>
       <div class="account-level-badge">Niv. ${s} — ${LEVEL_NAMES[s-1]||"Novice"}</div>
     </div>
@@ -94,3 +94,12 @@ Veux-tu vraiment tout effacer ?`)){try{localStorage.removeItem(STORE_KEY),localS
 function dayStartOptions(){const n=DB.profile.dayStartHour||0;return[0,1,2,3,4,5,6].map(t=>`<option value="${t}"${t===n?" selected":""}>${t===0?"Minuit":String(t).padStart(2,"0")+":00"}</option>`).join("")}
 function dayStartHint(){const t=DB.profile.dayStartHour||0;return t===0?"Les jours changent à minuit":`Avant ${String(t).padStart(2,"0")}:00, tu es encore dans la journée de la veille`}
 function changeDayStart(e){const a=Math.max(0,Math.min(6,parseInt(e,10)||0)),t=today();DB.profile.dayStartHour=a,setDayStartHour(a),saveData(),scheduleMidnightCheck(),today()!==t?checkDayChange():renderActivePage(),showToast(a===0?"Les jours changent à minuit":`Ta journée commence à ${String(a).padStart(2,"0")}:00`,3200,"moon"),activePage==="account"&&renderAccount()}
+
+const AVATAR_EMOJIS=["😀","😎","🥳","🤓","😴","🦊","🐱","🐶","🐼","🦁","🐸","🦄","🐙","🦉","🐢","🔥","⚡","🌙","🌈","🍀","🚀","🎧","🏆","💪"],AVATAR_DEFAULT="🙂";
+function avatarEmoji(){const e=DB.profile&&DB.profile.avatar;return typeof e==="string"&&e.trim()?e:AVATAR_DEFAULT}
+function firstGlyph(v){v=String(v||"").trim();if(!v)return"";try{if(window.Intl&&Intl.Segmenter){const r=new Intl.Segmenter(void 0,{granularity:"grapheme"}).segment(v)[Symbol.iterator]().next();return r.done?"":r.value.segment}}catch{}return Array.from(v)[0]||""}
+function renderAvatarPicker(){const c=avatarEmoji();document.getElementById("avatarBody").innerHTML=`<div class="hf-emoji-row"><input id="avatarInput" class="pseudo-input hf-emoji-input" maxlength="16" value="${esc(c)}" aria-label="Emoji de l’avatar" onkeydown="if(event.key==='Enter')setAvatar(this.value)"><button type="button" class="modal-save-btn" onclick="setAvatar(document.getElementById('avatarInput').value)">Utiliser</button></div><div class="hf-hint" style="margin-bottom:12px">Tape un emoji ou choisis-en un.</div><div class="hf-grid">${AVATAR_EMOJIS.map(e=>`<button type="button" class="hf-emoji-btn${c===e?" selected":""}" onclick="setAvatar('${e}')" aria-label="Emoji ${e}">${e}</button>`).join("")}</div><div style="margin-top:14px"><button type="button" class="hf-suggest" onclick="resetAvatar()">Emoji par défaut ${AVATAR_DEFAULT}</button></div>`}
+function openAvatarPicker(){renderAvatarPicker(),document.getElementById("avatarModal").classList.add("open")}
+function closeAvatarPicker(){document.getElementById("avatarModal").classList.remove("open")}
+function setAvatar(v){const g=firstGlyph(v);if(!g)return;DB.profile.avatar=g,saveData(),closeAvatarPicker(),activePage==="account"&&renderAccount()}
+function resetAvatar(){delete DB.profile.avatar,saveData(),closeAvatarPicker(),activePage==="account"&&renderAccount()}
