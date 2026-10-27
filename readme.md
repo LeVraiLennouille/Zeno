@@ -1,6 +1,6 @@
-# 🌙 HabitsTracker — Suivi d'habitudes gamifié (PWA)
+# 🌙 Zeno — Suivi d'habitudes gamifié (PWA)
 
-**HabitsTracker** est une application web de suivi d'habitudes qui s'appuie sur la gamification (XP, niveaux, séries, succès) et sur un volet bien-être (humeur, respiration, sommeil). Écrite en HTML, CSS et JavaScript vanilla, elle fonctionne sans serveur ni compte : toutes les données restent dans le navigateur. Elle s'installe comme une application native (PWA) sur mobile et desktop et fonctionne hors-ligne.
+**Zeno** est une application web de suivi d'habitudes qui s'appuie sur la gamification (XP, niveaux, séries, succès) et sur un volet bien-être (humeur, respiration, sommeil). Écrite en HTML, CSS et JavaScript vanilla, elle fonctionne sans serveur ni compte : toutes les données restent dans le navigateur. Elle s'installe comme une application native (PWA) sur mobile et desktop et fonctionne hors-ligne.
 
 ---
 
@@ -239,7 +239,7 @@ Aucun fichier audio : tous les sons sont synthétisés à la volée avec la **We
 - Installable sur iOS (Safari → « Sur l'écran d'accueil ») et Android/desktop (Chrome).
 - **Raccourcis d'icône** (appui long) : voir [Raccourcis PWA](#21--raccourcis-pwa).
 - Mode `standalone`, orientation portrait, langue `fr`, prise en charge des zones sécurisées (encoche, barre d'accueil).
-- **Hors-ligne** via le Service Worker (`ht-v3.2`) :
+- **Hors-ligne** via le Service Worker (`ht-v3.3`) :
   - HTML : réseau d'abord, repli sur le cache ;
   - fichiers locaux (CSS, JS, icônes, manifeste) : cache d'abord, précachés à l'installation ;
   - Google Fonts : *stale-while-revalidate*.
@@ -323,7 +323,7 @@ Chaque raccourci ouvre `index.html?action=…` ; l'action est exécutée une seu
 
 Dans **Compte → Sauvegarde**. Vider le cache ou changer de téléphone ne doit plus effacer l'historique.
 
-- **Exporter** : télécharge `habitstracker-AAAA-MM-JJ.json` (sur mobile, la feuille de partage permet d'enregistrer le fichier dans Fichiers, Drive, etc.). Le fichier contient une enveloppe (`app`, `schema`, `appVersion`, `exportedAt`) et **toutes** les données.
+- **Exporter** : télécharge `zeno-AAAA-MM-JJ.json` (sur mobile, la feuille de partage permet d'enregistrer le fichier dans Fichiers, Drive, etc.). Le fichier contient une enveloppe (`app`, `schema`, `appVersion`, `exportedAt`) et **toutes** les données.
 - **Importer** : lit un fichier d'export (ou une base brute plus ancienne), affiche un **résumé** (habitudes, XP et niveau, humeurs, notes, date de début) et demande confirmation avant de **remplacer** les données.
   - **Validation stricte** : liste blanche de champs, dates, types et bornes. Les champs inconnus sont ignorés, les valeurs hors limites écartées, les textes tronqués, les couleurs contrôlées, les doublons et les références orphelines nettoyés. Un fichier hostile ne peut ni injecter de code, ni polluer l'application.
   - **Annulable** : un **point de restauration** des données précédentes est conservé (`ht-v2.6.bak`) ; un toast « Annuler » apparaît juste après l'import et la ligne **Annuler le dernier import** reste disponible dans Compte. « Réinitialiser » l'efface aussi.
@@ -402,7 +402,7 @@ Règles : il s'affiche **une seule fois par semaine**, jamais en pleine nuit (au
 ## 🛠️ Architecture technique
 
 ```
-habitstracker/
+zeno/
 ├── index.html          # Structure des pages, 11 fenêtres (humeur, profil, sommeil, habitude, rappel, pause, défi, fiche, bilan, respiration, méditation)
 ├── style.css           # Design system « Encre » (variables CSS, thèmes clair / sombre)
 ├── sw.js               # Service Worker (cache, hors-ligne, clic sur notification)

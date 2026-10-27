@@ -1,4 +1,4 @@
-const CACHE_VERSION="ht-v3.2";
+const CACHE_VERSION="ht-v3.3";
 const STATIC_CACHE=`${CACHE_VERSION}-static`;
 const RUNTIME_CACHE=`${CACHE_VERSION}-runtime`;
 const PRECACHE_ASSETS=["./index.html","./style.css","./js/core.js","./js/theme.js","./js/progress.js","./js/home.js","./js/mood.js","./js/report.js","./js/habits.js","./js/account.js","./js/reminders.js","./js/wellness.js","./js/pause.js","./js/challenges.js","./js/shortcuts.js","./js/backup.js","./js/archive.js","./js/times.js","./js/reorder.js","./js/detail.js","./js/review.js","./js/day.js","./js/a11y.js","./js/app.js","./manifest.json","./assets/icon-192.png","./assets/icon-512.png","./assets/icon-512-maskable.png","./assets/apple-touch-icon.png"];
