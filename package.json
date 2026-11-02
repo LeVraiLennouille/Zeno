@@ -1,0 +1,23 @@
+{
+  "name": "zeno",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.domain.json && node --require ./tests/setup-tz.cjs --test tests/*.test.cjs",
+    "generate:icons": "node scripts/generate-icons.cjs",
+    "check:ui": "node scripts/check-ui.cjs",
+    "typecheck:shim": "tsc -p scripts/tsconfig.shim.json",
+    "check": "npm test && npm run check:ui && npm run check:a11y && npm run typecheck:shim",
+    "check:a11y": "node scripts/check-a11y.cjs",
+    "generate:sounds": "node scripts/generate-sounds.cjs"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}
