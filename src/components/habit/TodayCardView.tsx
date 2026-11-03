@@ -3,7 +3,7 @@ import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { fmtNum, type TodayCard } from '@/domain';
 import { flashBus } from '@/services/feedbackPorts';
-import { useStore } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

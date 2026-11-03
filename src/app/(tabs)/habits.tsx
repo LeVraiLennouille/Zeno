@@ -13,7 +13,7 @@ import { archivedModel, fmtDay, myHabitsModel, type ArchivedRow } from '@/domain
 import { Icon } from '@/icons/Icon';
 import { confirmAsync } from '@/services/confirm';
 import { notify, notifyUndo } from '@/services/toast';
-import { useModel, useStore } from '@/state/react';
+import { useModel, useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 function ArchivedList({ rows }: { readonly rows: readonly ArchivedRow[] }) {

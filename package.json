@@ -16,7 +16,8 @@
     "check": "npm test && npm run check:ui && npm run check:a11y && npm run typecheck:shim",
     "check:a11y": "node scripts/check-a11y.cjs",
     "generate:sounds": "node scripts/generate-sounds.cjs",
-    "install:deps": "node scripts/install-deps.cjs"
+    "install:deps": "node scripts/install-deps.cjs",
+    "verify": "node scripts/verify-files.cjs"
   },
   "devDependencies": {
     "typescript": "~6.0.3"

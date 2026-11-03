@@ -5,7 +5,7 @@ import { remindersModel } from '@/domain';
 import { Icon } from '@/icons/Icon';
 import { ensurePermission, sendTestNotification } from '@/services/notifications';
 import { notify } from '@/services/toast';
-import { useModel, useStore } from '@/state/react';
+import { useModel, useStore } from '@/state/react/StoreProvider';
 import { radius, useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

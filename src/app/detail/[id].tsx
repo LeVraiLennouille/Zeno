@@ -11,7 +11,7 @@ import { HabitBadge } from '@/components/ui/HabitBadge';
 import { ModalScreen } from '@/components/ui/ModalScreen';
 import { clampDetailYear, detailModel, type DetailCell } from '@/domain';
 import { Icon } from '@/icons/Icon';
-import { useCtx } from '@/state/react';
+import { useCtx } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 const CELL = 12;

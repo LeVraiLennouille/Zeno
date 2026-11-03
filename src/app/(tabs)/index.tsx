@@ -15,7 +15,7 @@ import { WellnessSection } from '@/components/wellness/WellnessSection';
 import { TabsRow, type TabDef } from '@/components/ui/TabsRow';
 import { drinkCfg, fmtNum, getDrinkMl, lastWeekMonday, overallModel, reviewDue, shouldPromptMood, today, todayModel, weekModel } from '@/domain';
 import { notify } from '@/services/toast';
-import { useCtx, useModel, useStore } from '@/state/react';
+import { useCtx, useModel, useStore } from '@/state/react/StoreProvider';
 
 /** Bilan du lundi et humeur du jour ne sont proposés qu'une fois par session, comme dans la PWA. */
 const shown = { review: false, mood: false };

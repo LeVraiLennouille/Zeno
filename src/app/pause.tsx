@@ -11,7 +11,7 @@ import { pauseFormModel, pausePreset, setPauseField, startPauseForm, type PauseF
 import { pauseErrorMessage } from '@/i18n/messages';
 import { Icon } from '@/icons/Icon';
 import { notify } from '@/services/toast';
-import { useCtx, useStore } from '@/state/react';
+import { useCtx, useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 export default function PauseScreen() {

@@ -22,7 +22,7 @@ import {
   type MoodValue,
 } from '@/domain';
 import { notify } from '@/services/toast';
-import { useCtx, useStore } from '@/state/react';
+import { useCtx, useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 /** Humeur en deux étapes : on choisit l'humeur, puis ressentis et note facultative. */

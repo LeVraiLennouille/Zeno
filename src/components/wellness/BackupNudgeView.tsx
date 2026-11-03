@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { backupNudge, fmtDate } from '@/domain';
 import { exportBackupFile } from '@/services/backupFiles';
 import { notify } from '@/services/toast';
-import { useModel, useStore } from '@/state/react';
+import { useModel, useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

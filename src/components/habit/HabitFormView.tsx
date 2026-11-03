@@ -21,7 +21,7 @@ import { HABIT_FORM_ERRORS } from '@/i18n/messages';
 import { Icon } from '@/icons/Icon';
 import { confirmAsync } from '@/services/confirm';
 import { notify, notifyUndo } from '@/services/toast';
-import { useStore } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
 import { layout, useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

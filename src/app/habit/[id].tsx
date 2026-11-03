@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 
 import { HabitFormView } from '@/components/habit/HabitFormView';
 import { habitToForm } from '@/domain';
-import { useStore } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
 
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

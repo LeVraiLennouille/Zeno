@@ -32,7 +32,7 @@ import { Icon } from '@/icons/Icon';
 import { confirmAsync } from '@/services/confirm';
 import { keepScreenOn, releaseScreen } from '@/services/keepAwake';
 import { soundPlayer } from '@/services/sound';
-import { useCtx, useStore } from '@/state/react';
+import { useCtx, useStore } from '@/state/react/StoreProvider';
 import { layout, useTheme } from '@/theme';
 
 const NATIVE = Platform.OS !== 'web';

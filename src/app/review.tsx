@@ -11,7 +11,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { isDateKey, lastWeekMonday, mondayLabel, reviewModel } from '@/domain';
 import { copyText } from '@/services/clipboard';
 import { notify } from '@/services/toast';
-import { useCtx } from '@/state/react';
+import { useCtx } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 /** Bilan d'une semaine (la précédente par défaut). */

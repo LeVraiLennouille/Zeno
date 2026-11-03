@@ -21,7 +21,7 @@ import {
 } from '@/domain';
 import { confirmAsync } from '@/services/confirm';
 import { notify } from '@/services/toast';
-import { useCtx, useStore } from '@/state/react';
+import { useCtx, useStore } from '@/state/react/StoreProvider';
 
 const ERRORS: Readonly<Record<ReminderError, string>> = {
   title_required: 'Donne un titre au rappel',

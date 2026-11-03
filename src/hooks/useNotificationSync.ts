@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 
 import { planNotifications } from '@/domain';
 import { cancelAllNotifications, syncNotifications } from '@/services/notifications';
-import { useStore } from '@/state/react';
-import { useAppState } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
+import { useAppState } from '@/state/react/StoreProvider';
 
 /**
  * Garde les notifications programmées à jour : après chaque changement de rappel, d'habitude

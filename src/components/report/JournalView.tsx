@@ -5,7 +5,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import { JOURNAL_MORE, JOURNAL_PAGE, journalModel } from '@/domain';
 import { confirmAsync } from '@/services/confirm';
 import { notify } from '@/services/toast';
-import { useCtx, useStore } from '@/state/react';
+import { useCtx, useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

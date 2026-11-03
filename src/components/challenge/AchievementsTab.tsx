@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import { achievementsModel } from '@/domain';
-import { useModel } from '@/state/react';
+import { useModel } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

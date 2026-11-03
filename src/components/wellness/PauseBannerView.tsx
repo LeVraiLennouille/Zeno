@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 
 import { pauseBanner } from '@/domain';
 import { notify } from '@/services/toast';
-import { useModel, useStore } from '@/state/react';
+import { useModel, useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

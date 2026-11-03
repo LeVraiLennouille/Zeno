@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { currentMonthRef, MOOD_EMOJIS, moodCalendar, shiftMonth, type MonthRef } from '@/domain';
 import { Icon } from '@/icons/Icon';
-import { useCtx } from '@/state/react';
+import { useCtx } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

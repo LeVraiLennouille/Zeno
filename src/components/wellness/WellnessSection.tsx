@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { sleepSummary } from '@/domain';
 import { Icon, type AnyIconName } from '@/icons/Icon';
-import { useModel } from '@/state/react';
+import { useModel } from '@/state/react/StoreProvider';
 import { INK_COLORS, useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

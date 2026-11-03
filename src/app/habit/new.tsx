@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { HabitFormView } from '@/components/habit/HabitFormView';
 import { emptyHabitForm } from '@/domain';
-import { useStore } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
 
 export default function NewHabitScreen() {
   const store = useStore();

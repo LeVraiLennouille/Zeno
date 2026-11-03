@@ -5,7 +5,7 @@ import { fmtDate, importSummaryText, lastBackupLabel, parseBackup, restorePointL
 import { confirmAsync } from '@/services/confirm';
 import { exportBackupFile, pickBackupText } from '@/services/backupFiles';
 import { notify, notifyUndo } from '@/services/toast';
-import { useModel, useStore } from '@/state/react';
+import { useModel, useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

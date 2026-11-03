@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { MyHabitRow as Row } from '@/domain';
 import { Icon } from '@/icons/Icon';
-import { useStore } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

@@ -17,7 +17,7 @@ import {
 } from '@/domain';
 import { CHALLENGE_ERRORS } from '@/i18n/messages';
 import { notify } from '@/services/toast';
-import { useCtx, useStore } from '@/state/react';
+import { useCtx, useStore } from '@/state/react/StoreProvider';
 
 export default function NewChallengeScreen() {
   const router = useRouter();

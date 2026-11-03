@@ -30,6 +30,11 @@ notifications et l'audio sur mobile, prévoir un **development build** (`npx exp
 - **`npm audit` signale des vulnérabilités « moderate »** (glob, minimatch) : elles concernent l'outillage de build d'Expo,
   pas l'application. **N'exécute pas `npm audit fix --force`** : il propose de rétrograder Expo vers la version 51.
 
+- **Des erreurs « Cannot find module './home' » ou « has no exported member … » en cascade** (des centaines d'erreurs
+  venant de `src/domain/index.ts` ou `src/state/index.ts`) : un fichier a été remplacé lors de la copie ou de l'extraction.
+  `npm run verify` compare chaque fichier à l'archive livrée (`MANIFEST.json`) et liste ceux qui diffèrent.
+  Le plus sûr est d'extraire l'archive dans un **dossier vide**, pas par-dessus un ancien projet.
+
 ## Ce qui est livré
 
 | Étape | Contenu |

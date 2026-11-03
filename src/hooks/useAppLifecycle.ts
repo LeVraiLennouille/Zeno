@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { today } from '@/domain';
-import { useStore } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
 
 /**
  * Cycle de vie : sauvegarde quand l'app passe en arrière-plan, recalcul au retour au

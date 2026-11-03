@@ -25,7 +25,7 @@ import {
 } from '@/domain';
 import { fmtNum } from '@/domain';
 import { Icon } from '@/icons/Icon';
-import { useCtx, useModel } from '@/state/react';
+import { useCtx, useModel } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 function StatTile({ value, label }: { readonly value: string; readonly label: string }) {

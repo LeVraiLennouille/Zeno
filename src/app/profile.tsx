@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
-import { useStore } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 export default function ProfileScreen() {

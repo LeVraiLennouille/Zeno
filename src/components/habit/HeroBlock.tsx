@@ -1,7 +1,7 @@
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { heroDateLabel, heroModel } from '@/domain';
-import { useModel } from '@/state/react';
+import { useModel } from '@/state/react/StoreProvider';
 import { layout, useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';

@@ -7,7 +7,7 @@ import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { AVATAR_DEFAULT, AVATAR_EMOJIS, avatarEmoji } from '@/domain';
-import { useStore } from '@/state/react';
+import { useStore } from '@/state/react/StoreProvider';
 import { useTheme } from '@/theme';
 
 export default function AvatarScreen() {

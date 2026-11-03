@@ -15,7 +15,7 @@ import { accountModel, dayStartHint, dayStartLabel, pauseSectionModel, seasonCar
 import { Icon } from '@/icons/Icon';
 import { confirmAsync } from '@/services/confirm';
 import { notify } from '@/services/toast';
-import { useModel, useStore } from '@/state/react';
+import { useModel, useStore } from '@/state/react/StoreProvider';
 import { radius, useTheme } from '@/theme';
 
 const THEME_OPTIONS: readonly { readonly id: ThemeMode; readonly label: string }[] = [
