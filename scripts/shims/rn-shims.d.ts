@@ -21,7 +21,9 @@ declare module 'react' {
   export function useState<S>(initial: S | (() => S)): [S, Dispatch<SetStateAction<S>>];
   export function useMemo<T>(factory: () => T, deps: readonly unknown[]): T;
   export function useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void;
+  export function useRef<T>(initial: null): { current: T | null };
   export function useRef<T>(initial: T): { current: T };
+  export type ComponentRef<T> = T extends { prototype: infer I } ? I : any;
   export function useId(): string;
   export function useCallback<T extends (...args: any[]) => any>(fn: T, deps: readonly unknown[]): T;
   export function useContext<T>(ctx: Context<T>): T;

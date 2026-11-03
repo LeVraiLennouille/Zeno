@@ -7,23 +7,28 @@ la couche d'interface n'a **pas pu être lancée** dans l'environnement de déve
 ## Démarrer
 
 ```bash
-npm install                                   # TypeScript (tests)
-npm install expo@latest
-npx expo install expo-router react react-dom react-native react-native-web \
-  react-native-svg react-native-safe-area-context react-native-screens \
-  expo-linking expo-constants expo-status-bar expo-font expo-splash-screen \
-  expo-haptics expo-audio expo-keep-awake expo-clipboard expo-notifications \
-  expo-document-picker expo-sharing expo-file-system \
-  @react-native-async-storage/async-storage
-npm install -D @types/react
+npm install                  # TypeScript (tests)
+npm run install:deps         # installe Expo + toutes les dépendances (Windows, macOS, Linux)
 
-npm run check        # 239 tests + contrôles statiques de l'interface
-npm run typecheck    # vrai contrôle de types (après installation des paquets)
-npx expo start       # puis « w » (navigateur), « i » / « a » (simulateur)
+npm run check                # 239 tests + contrôles statiques de l'interface
+npm run typecheck            # vrai contrôle de types (après installation des paquets)
+npx expo start               # puis « w » (navigateur), « i » / « a » (simulateur)
 ```
 
-`npx expo install` choisit les versions compatibles avec le SDK (SDK 57 visé). Pour tester les
+> Windows : n'utilise pas de commande sur plusieurs lignes avec `\` (syntaxe Unix) ; `npm run install:deps` évite le problème.
+> Si un paquet manque, `npm run typecheck` signale « Cannot find module … » : relance `npm run install:deps`.
+
+Le script utilise `npx expo install`, qui choisit les versions compatibles avec le SDK (au dernier essai, `expo@latest` a installé le **SDK 58**). Pour tester les
 notifications et l'audio sur mobile, prévoir un **development build** (`npx expo run:ios|android`).
+
+## Dépannage
+
+- **`ERR_MODULE_NOT_FOUND … autoAddConfigPlugins.js`** à la fin de `expo install` : sans gravité, les paquets sont déjà
+  installés (étape annexe d'ajout de plugins ; `app.json` les déclare déjà). Vérifie avec `npx expo-doctor`.
+- **`Missing peer dependency: expo-asset`** : `npx expo install expo-asset` (ou `npm install expo-asset`, puis `npx expo-doctor`).
+- **Avertissements `ERESOLVE overriding peer dependency` (react 19.3.0 / 19.3.1)** : sans effet tant que `expo-doctor` valide les versions.
+- **`npm audit` signale des vulnérabilités « moderate »** (glob, minimatch) : elles concernent l'outillage de build d'Expo,
+  pas l'application. **N'exécute pas `npm audit fix --force`** : il propose de rétrograder Expo vers la version 51.
 
 ## Ce qui est livré
 

@@ -1,81 +1,46 @@
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Tabs } from 'expo-router';
 
-import { ConfettiOverlay } from '@/components/feedback/ConfettiOverlay';
-import { ToastHost } from '@/components/feedback/ToastHost';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
-import { useFeedbackWiring } from '@/hooks/useFeedbackWiring';
-import { useNotificationSync } from '@/hooks/useNotificationSync';
-import { setupWebPwa } from '@/services/webPwa';
-import { appStore } from '@/services/appStore';
-import { useAppState, StoreProvider } from '@/state/react';
-import { FONT_FILES, ThemeProvider, useTheme } from '@/theme';
+import { Icon, type AnyIconName } from '@/icons/Icon';
+import { layout, useTheme } from '@/theme';
 
-void SplashScreen.preventAutoHideAsync();
-
-function ThemedStack() {
-  const { scheme, colors } = useTheme();
-  return (
-    <>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="habit/new" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="habit/[id]" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="profile" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="avatar" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="mood" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="review" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="reminder/[id]" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="detail/[id]" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="sleep" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="pause" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="challenge/new" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="breathing" options={{ presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="meditation" options={{ presentation: 'fullScreenModal' }} />
-      </Stack>
-      <ToastHost />
-      <ConfettiOverlay />
-    </>
-  );
+interface TabDef {
+  readonly name: string;
+  readonly title: string;
+  readonly icon: AnyIconName;
 }
 
-function Shell({ fontsReady }: { readonly fontsReady: boolean }) {
-  const { hydrated, db } = useAppState();
-  useAppLifecycle();
-  useFeedbackWiring();
-  useNotificationSync();
-  useEffect(() => setupWebPwa(), []);
+const TABS: readonly TabDef[] = [
+  { name: 'index', title: 'Accueil', icon: 'navHome' },
+  { name: 'achievements', title: 'Succès', icon: 'navAchievements' },
+  { name: 'report', title: 'Rapport', icon: 'navReport' },
+  { name: 'habits', title: 'Habitudes', icon: 'navHabits' },
+  { name: 'account', title: 'Compte', icon: 'navAccount' },
+];
 
-  const ready = fontsReady && hydrated;
-  useEffect(() => {
-    if (ready) void SplashScreen.hideAsync();
-  }, [ready]);
-
-  if (!ready) return null;
+export default function TabsLayout() {
+  const { colors } = useTheme();
   return (
-    <SafeAreaProvider>
-      <ThemeProvider mode={db.profile.themeMode}>
-        <ThemedStack />
-      </ThemeProvider>
-    </SafeAreaProvider>
-  );
-}
-
-export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts(FONT_FILES);
-
-  useEffect(() => {
-    void appStore.hydrate();
-  }, []);
-
-  return (
-    <StoreProvider store={appStore}>
-      <Shell fontsReady={fontsLoaded || fontError !== null} />
-    </StoreProvider>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.dockFg,
+        tabBarInactiveTintColor: `${colors.dockFg}99`,
+        tabBarStyle: { backgroundColor: colors.dockBg, borderTopWidth: 0, height: layout.dockHeight },
+        tabBarLabelStyle: { fontFamily: 'Instrument-SemiBold', fontSize: 11 },
+      }}
+    >
+      {TABS.map((t) => (
+        <Tabs.Screen
+          key={t.name}
+          name={t.name}
+          options={{
+            title: t.title,
+            tabBarAccessibilityLabel: t.title,
+            // `color` est typé ColorValue par React Navigation : seule une chaîne est exploitable par le SVG.
+            tabBarIcon: ({ color, size }) => <Icon name={t.icon} color={typeof color === 'string' ? color : colors.dockFg} size={size} />,
+          }}
+        />
+      ))}
+    </Tabs>
   );
 }

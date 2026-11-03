@@ -1,5 +1,5 @@
 import { Link, Redirect, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { LineChart, RATE_CHART } from '@/components/charts/LineChart';
@@ -43,7 +43,7 @@ export default function DetailScreen() {
   const ctx = useCtx();
   const { colors } = useTheme();
   const [year, setYear] = useState<number | undefined>(undefined);
-  const scroller = useRef<ScrollView | null>(null);
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const m = id ? detailModel(ctx, id, year) : null;
   if (!m) return <Redirect href="/habits" />;
 

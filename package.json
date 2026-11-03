@@ -15,7 +15,8 @@
     "typecheck:shim": "tsc -p scripts/tsconfig.shim.json",
     "check": "npm test && npm run check:ui && npm run check:a11y && npm run typecheck:shim",
     "check:a11y": "node scripts/check-a11y.cjs",
-    "generate:sounds": "node scripts/generate-sounds.cjs"
+    "generate:sounds": "node scripts/generate-sounds.cjs",
+    "install:deps": "node scripts/install-deps.cjs"
   },
   "devDependencies": {
     "typescript": "~6.0.3"

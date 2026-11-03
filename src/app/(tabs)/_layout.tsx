@@ -36,7 +36,8 @@ export default function TabsLayout() {
           options={{
             title: t.title,
             tabBarAccessibilityLabel: t.title,
-            tabBarIcon: ({ color, size }) => <Icon name={t.icon} color={color} size={size} />,
+            // `color` est typé ColorValue par React Navigation : seule une chaîne est exploitable par le SVG.
+            tabBarIcon: ({ color, size }) => <Icon name={t.icon} color={typeof color === 'string' ? color : colors.dockFg} size={size} />,
           }}
         />
       ))}
