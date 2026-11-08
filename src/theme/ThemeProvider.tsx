@@ -25,8 +25,19 @@ export function ThemeProvider({ mode, children }: { readonly mode: ThemeMode; re
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
 
+const FALLBACK: Theme = { mode: 'light', scheme: 'light', colors: lightColors };
+let warned = false;
+
+/**
+ * Thème courant. Hors `<ThemeProvider>` (ex. écran d'erreur, rendu très précoce), on retombe sur le
+ * thème clair plutôt que de planter : une page blanche est pire qu'un mauvais thème.
+ */
 export function useTheme(): Theme {
   const theme = useContext(ThemeContext);
-  if (!theme) throw new Error('useTheme() doit être appelé sous <ThemeProvider>.');
-  return theme;
+  if (theme) return theme;
+  if (__DEV__ && !warned) {
+    warned = true;
+    console.warn('[Zeno] useTheme() appelé hors <ThemeProvider> : thème clair par défaut.');
+  }
+  return FALLBACK;
 }

@@ -75,6 +75,7 @@ declare module 'react-native-safe-area-context' {
 }
 declare module 'expo-router' {
   export const Link: any, Stack: any, Redirect: any;
+  export interface ErrorBoundaryProps { error: Error; retry: () => Promise<void> }
   export const Tabs: ((props: any) => any) & {
     Screen: (props: { name: string; options?: { [k: string]: any; tabBarIcon?: (p: { color: string; size: number }) => any } }) => any;
   };
@@ -133,3 +134,4 @@ declare function clearTimeout(id: unknown): void;
 declare function setInterval(fn: () => void, ms?: number): number;
 declare function clearInterval(id: unknown): void;
 declare const globalThis: any;
+declare const console: { warn(...args: unknown[]): void };
