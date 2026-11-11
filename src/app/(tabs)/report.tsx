@@ -11,6 +11,7 @@ import { ReportCard } from '@/components/report/ReportCard';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { HeaderActionButton } from '@/components/ui/PageHeader';
 import { Screen } from '@/components/ui/Screen';
 import {
   DAY_SHORT,
@@ -119,7 +120,13 @@ export default function ReportScreen() {
   );
 
   return (
-    <Screen>
+    <Screen
+      headerRight={
+        <HeaderActionButton label="Saisir l'humeur" onPress={() => router.push('/mood')}>
+          <Icon name="mood" size={20} color={colors.text} />
+        </HeaderActionButton>
+      }
+    >
       <View style={{ gap: 12 }}>
         <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="tablist">
           {REPORT_PERIODS.map((p) => (

@@ -16,6 +16,7 @@ declare module 'react' {
   export type ReactNode = any;
   export type PropsWithChildren<P = unknown> = P & { children?: any };
   export type ComponentType<P = any> = any;
+  export type ComponentProps<T> = T extends (props: infer P) => any ? P : any;
   export type Dispatch<A> = (value: A) => void;
   export type SetStateAction<S> = S | ((prev: S) => S);
   export function useState<S>(initial: S | (() => S)): [S, Dispatch<SetStateAction<S>>];
@@ -76,7 +77,7 @@ declare module 'react-native-safe-area-context' {
 declare module 'expo-router' {
   export const Link: any, Stack: any, Redirect: any;
   export interface ErrorBoundaryProps { error: Error; retry: () => Promise<void> }
-  export const Tabs: ((props: any) => any) & {
+  export const Tabs: ((props: { tabBar?: (props: any) => any; screenOptions?: any; children?: any }) => any) & {
     Screen: (props: { name: string; options?: { [k: string]: any; tabBarIcon?: (p: { color: string; size: number }) => any } }) => any;
   };
   export function useRouter(): { back(): void; push(href: any): void; replace(href: any): void; setParams(p: Record<string, string>): void };

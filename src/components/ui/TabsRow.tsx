@@ -9,7 +9,7 @@ export interface TabDef<T extends string> {
   readonly label: string;
 }
 
-/** Onglets textuels soulignés (« Aujourd'hui · Semaine · Global »). */
+/** Onglets textuels soulignés (« Aujourd'hui · Semaine · Global »), trait de 4 px sous l'onglet actif. */
 export function TabsRow<T extends string>({
   tabs,
   value,
@@ -25,16 +25,11 @@ export function TabsRow<T extends string>({
       {tabs.map((t) => {
         const active = t.id === value;
         return (
-          <Pressable
-            key={t.id}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            onPress={() => onChange(t.id)}
-            style={[styles.tab, { borderBottomColor: active ? colors.text : 'transparent' }]}
-          >
-            <AppText variant="heading" tone={active ? 'text' : 'text2'}>
+          <Pressable key={t.id} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => onChange(t.id)} style={styles.tab}>
+            <AppText variant="heading" tone={active ? 'text' : 'text2'} style={styles.label}>
               {t.label}
             </AppText>
+            {active ? <View style={[styles.underline, { backgroundColor: colors.text }]} /> : null}
           </Pressable>
         );
       })}
@@ -43,6 +38,9 @@ export function TabsRow<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 24, borderBottomWidth: 1.5 },
-  tab: { minHeight: 44, justifyContent: 'center', paddingTop: 8, paddingBottom: 6, borderBottomWidth: 3, marginBottom: -1.5 },
+  // Pleine largeur dans la colonne de 16 px de marge : bord à bord comme `.tabs-row{padding:0 20px}`.
+  row: { flexDirection: 'row', gap: 24, borderBottomWidth: 1.5, marginHorizontal: -16, paddingHorizontal: 20 },
+  tab: { minHeight: 44, justifyContent: 'center', paddingTop: 10, paddingBottom: 12 },
+  label: { fontSize: 18, lineHeight: 22, letterSpacing: -0.2 },
+  underline: { position: 'absolute', left: 0, right: 0, bottom: -1.5, height: 4, borderRadius: 2 },
 });

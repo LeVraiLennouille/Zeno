@@ -4,17 +4,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { layout, useTheme } from '@/theme';
 
-/** Conteneur d'écran : fond du thème, zones sûres, dock réservé, largeur bornée sur navigateur. */
-export function Screen({ children }: { readonly children: ReactNode }) {
+import { PageHeader } from './PageHeader';
+
+/** Conteneur d'écran : fond du thème, en-tête logo, dock flottant réservé, largeur bornée à 430 px (`.app`). */
+export function Screen({ children, headerRight }: { readonly children: ReactNode; readonly headerRight?: ReactNode }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <PageHeader right={headerRight} />
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + 16, paddingBottom: layout.dockHeight + insets.bottom + 24 },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: layout.dockHeight + layout.dockInset + insets.bottom + 56 }]}
         showsVerticalScrollIndicator={false}
       >
         {children}
@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     gap: 12,
   },
 });

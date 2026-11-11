@@ -8,6 +8,7 @@ import { HeroBlock } from '@/components/habit/HeroBlock';
 import { OverallRowView } from '@/components/habit/OverallRowView';
 import { TodayCardView } from '@/components/habit/TodayCardView';
 import { WeekRowView } from '@/components/habit/WeekRowView';
+import { DotsIcon, HeaderActionButton } from '@/components/ui/PageHeader';
 import { Screen } from '@/components/ui/Screen';
 import { BackupNudgeView } from '@/components/wellness/BackupNudgeView';
 import { PauseBannerView } from '@/components/wellness/PauseBannerView';
@@ -37,7 +38,7 @@ function TodayList() {
     return <EmptyNote text="Aucune habitude prévue aujourd'hui. Appuie sur + pour en créer une." />;
   }
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 10 }}>
       {cards.map((card) => (
         <TodayCardView key={card.habit.id} card={card} />
       ))}
@@ -48,7 +49,7 @@ function TodayList() {
 function WeekList() {
   const rows = useModel(weekModel);
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 10 }}>
       {rows.map((row) => (
         <WeekRowView key={row.habit.id} row={row} />
       ))}
@@ -59,7 +60,7 @@ function WeekList() {
 function OverallList() {
   const rows = useModel(overallModel);
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 10 }}>
       {rows.map((row) => (
         <OverallRowView key={row.habit.id} row={row} />
       ))}
@@ -114,7 +115,13 @@ export default function HomeScreen() {
 
   return (
     <>
-      <Screen>
+      <Screen
+        headerRight={
+          <HeaderActionButton label="Menu" onPress={() => router.push('/profile')}>
+            <DotsIcon />
+          </HeaderActionButton>
+        }
+      >
         <HeroBlock />
         <PauseBannerView />
         <BackupNudgeView />

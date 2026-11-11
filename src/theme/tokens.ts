@@ -76,10 +76,19 @@ export const radius = { lg: 24, md: 16, sm: 12 } as const;
 
 export const layout = {
   dockHeight: 64,
-  /** Largeur maximale du contenu sur grand écran (navigateur). */
-  contentMaxWidth: 560,
+  /** Marge entre le dock flottant et les bords / le bas de l'écran (`.bottom-nav`). */
+  dockInset: 14,
+  /** Largeur maximale de l'app, comme `.app{max-width:430px}` de la PWA. */
+  contentMaxWidth: 430,
+  /** Hauteur du logo et marge verticale de l'en-tête (`--logo-h`, `--logo-m`). */
+  logoHeight: 44,
+  logoMargin: 16,
 } as const;
 
 /** Ombre dure décalée, signature visuelle de l'interface (sans flou). */
 export const hardShadow = (color: string, offset = 4) =>
   ({ boxShadow: `${offset}px ${offset}px 0px 0px ${color}` }) as const;
+
+/** Ombre portée du dock et des toasts (`--shadow-md`). */
+export const softShadow = (scheme: 'light' | 'dark') =>
+  ({ boxShadow: scheme === 'dark' ? '0px 10px 30px 0px rgba(0,0,0,0.5)' : '0px 10px 30px 0px rgba(18,19,26,0.22)' }) as const;

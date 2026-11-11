@@ -16,7 +16,7 @@ export function HeroBlock() {
   const size = Math.round(Math.min(136, Math.max(88, Math.min(width, layout.contentMaxWidth) * 0.31)));
   const caption = hero.paused ? 'Jour de pause · séries gelées' : hero.perfect ? 'Journée parfaite' : 'habitudes faites';
   return (
-    <View>
+    <View style={{ paddingHorizontal: 4, paddingTop: 6, paddingBottom: 8 }}>
       <AppText variant="body" tone="text2" style={styles.date}>
         {date}
       </AppText>
@@ -58,7 +58,7 @@ export function HeroBlock() {
 }
 
 const styles = StyleSheet.create({
-  date: { textTransform: 'capitalize' },
+  date: { textTransform: 'capitalize', fontFamily: 'Instrument-Medium', fontSize: 14, lineHeight: 20 },
   score: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginTop: 2 },
   count: { flexDirection: 'row', alignItems: 'baseline' },
   side: { alignItems: 'flex-end', paddingBottom: 6, flexShrink: 1 },

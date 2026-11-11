@@ -7,7 +7,6 @@ import { useModel } from '@/state/react/StoreProvider';
 import { INK_COLORS, useTheme } from '@/theme';
 
 import { AppText } from '../ui/AppText';
-import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 
 interface Tile {
@@ -23,13 +22,13 @@ const TILES: readonly Tile[] = [
   { href: '/meditation', label: 'Méditation', icon: 'meditate', ink: INK_COLORS[3] },
 ];
 
-/** Section « Bien-être » : trois accès rapides et le résumé de la nuit. */
+/** Section « Bien-être » : trois tuiles colorées (`.mind-tile`) et le résumé de la nuit (`.sleep-summary-card`). */
 export function WellnessSection() {
   const { colors } = useTheme();
   const { entry } = useModel(sleepSummary);
   return (
-    <View style={{ gap: 12, marginTop: 28 }}>
-      <AppText variant="heading" accessibilityRole="header">
+    <View style={{ gap: 12, marginTop: 20 }}>
+      <AppText variant="heading" accessibilityRole="header" style={{ paddingHorizontal: 4 }}>
         Bien-être
       </AppText>
       <View style={styles.tiles}>
@@ -38,37 +37,56 @@ export function WellnessSection() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t.label}
-              style={({ pressed }) => [styles.tile, { backgroundColor: t.ink, opacity: pressed ? 0.8 : 1 }]}
+              style={({ pressed }) => [styles.tile, { backgroundColor: t.ink, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
             >
-              <Icon name={t.icon} size={26} color={colors.inkText} />
-              <AppText variant="caption" style={{ color: colors.inkText, textAlign: 'center' }}>
+              <Icon name={t.icon} size={28} color={colors.inkText} />
+              <AppText variant="heading" style={{ color: colors.inkText, fontSize: 16, lineHeight: 18 }}>
                 {t.label}
               </AppText>
             </Pressable>
           </Link>
         ))}
       </View>
-      <Card shadow={false} style={{ gap: 10 }}>
+      <Card shadow={false}>
         <View style={styles.sleepHead}>
-          <AppText variant="heading">Sommeil</AppText>
+          <AppText variant="heading" style={{ fontSize: 19 }}>
+            Sommeil
+          </AppText>
           <Link href="/sleep" asChild>
-            <Button label="Saisir" variant="outline" style={{ minHeight: 40, paddingHorizontal: 14 }} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Saisir" style={{ ...styles.enter, borderColor: colors.text }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 14 }}>
+                Saisir
+              </AppText>
+            </Pressable>
           </Link>
         </View>
         {entry ? (
-          <View style={{ gap: 6 }}>
-            <AppText variant="title">
-              {entry.hours} h {String(entry.minutes).padStart(2, '0')} min
-            </AppText>
+          <View style={{ marginTop: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+              <AppText variant="hero" style={styles.big}>
+                {entry.hours}
+              </AppText>
+              <AppText variant="bodyStrong" tone="text2" style={styles.unit}>
+                h
+              </AppText>
+              <AppText variant="hero" style={styles.big}>
+                {String(entry.minutes).padStart(2, '0')}
+              </AppText>
+              <AppText variant="bodyStrong" tone="text2" style={styles.unit}>
+                min
+              </AppText>
+            </View>
             {entry.bedtime || entry.wakeTime ? (
-              <View style={{ flexDirection: 'row', gap: 20 }}>
+              <View style={{ flexDirection: 'row', gap: 24, marginTop: 10 }}>
                 {entry.bedtime ? <Meta label="Coucher" value={entry.bedtime} /> : null}
                 {entry.wakeTime ? <Meta label="Réveil" value={entry.wakeTime} /> : null}
               </View>
             ) : null}
           </View>
         ) : (
-          <AppText tone="text2">Pas encore de nuit saisie aujourd'hui.</AppText>
+          <AppText tone="text2" style={{ marginTop: 8, fontSize: 14 }}>
+            Pas encore de nuit saisie aujourd'hui.
+          </AppText>
         )}
       </Card>
     </View>
@@ -77,8 +95,8 @@ export function WellnessSection() {
 
 function Meta({ label, value }: { readonly label: string; readonly value: string }) {
   return (
-    <View>
-      <AppText variant="label" tone="text3">
+    <View style={{ gap: 2 }}>
+      <AppText variant="caption" tone="text2">
         {label}
       </AppText>
       <AppText variant="bodyStrong">{value}</AppText>
@@ -88,6 +106,9 @@ function Meta({ label, value }: { readonly label: string; readonly value: string
 
 const styles = StyleSheet.create({
   tiles: { flexDirection: 'row', gap: 10 },
-  tile: { flex: 1, minHeight: 92, borderRadius: 20, padding: 10, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  tile: { flex: 1, minHeight: 112, borderRadius: 22, padding: 14, alignItems: 'flex-start', justifyContent: 'space-between' },
   sleepHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  enter: { minHeight: 40, paddingHorizontal: 18, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  big: { fontSize: 51, lineHeight: 52, letterSpacing: -1.5 },
+  unit: { marginLeft: 2, marginRight: 6 },
 });
