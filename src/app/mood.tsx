@@ -91,7 +91,7 @@ export default function MoodScreen() {
             ))}
           </View>
           <Button
-            label={mood ? `Je me sens ${MOOD_LABELS[mood].toLowerCase()}` : 'Je me sens…'}
+            label={mood ? `Je me sens ${(MOOD_LABELS[mood] ?? '').toLowerCase()}` : 'Je me sens…'}
             disabled={!mood}
             onPress={() => setStep(2)}
           />

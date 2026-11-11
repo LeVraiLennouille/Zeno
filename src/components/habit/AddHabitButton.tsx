@@ -10,7 +10,7 @@ export function AddHabitButton() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom: layout.dockHeight + insets.bottom + 28 }]}>
+    <View style={[styles.wrap, { bottom: layout.dockHeight + insets.bottom + 28, pointerEvents: 'box-none' }]}>
       <Link href="/habit/new" asChild>
         <Pressable
           accessibilityRole="button"

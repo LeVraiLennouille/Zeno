@@ -61,7 +61,7 @@ export function ConfettiOverlay() {
 
   if (pieces.length === 0) return null;
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill} importantForAccessibility="no-hide-descendants">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]} importantForAccessibility="no-hide-descendants">
       {pieces.map((p) => (
         <Animated.View
           key={p.id}

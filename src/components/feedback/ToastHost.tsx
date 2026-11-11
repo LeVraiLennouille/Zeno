@@ -36,7 +36,7 @@ export function ToastHost() {
 
   if (!toast) return null;
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom: layout.dockHeight + insets.bottom + 16 }]}>
+    <View style={[styles.wrap, { bottom: layout.dockHeight + insets.bottom + 16, pointerEvents: 'box-none' }]}>
       <Animated.View
         accessibilityRole="alert"
         accessibilityLiveRegion="polite"
